@@ -12,6 +12,7 @@ interface GlassCardProps {
     borderRadius?: number;
     tintOpacity?: number;
     type?: 'rounded' | 'circle' | 'pill';
+    padding?: string | number;
 }
 
 export function GlassCard({
@@ -20,7 +21,8 @@ export function GlassCard({
     style,
     borderRadius = 24,
     tintOpacity = 0.2,
-    type = 'rounded'
+    type = 'rounded',
+    padding
 }: GlassCardProps) {
     const mountRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<any>(null);
@@ -70,8 +72,6 @@ export function GlassCard({
             containerRef.current = instance;
 
             if (instance.element) {
-                // Ensure full width in wrapper
-                instance.element.style.width = '100%';
 
                 // CRITICAL: Glass element background should NOT capture pointers effectively
                 // But we need it to be visible. Children (content) need 'auto'.
@@ -80,6 +80,10 @@ export function GlassCard({
                 // 3D Tilt Logic
                 const handleMove = (e: MouseEvent) => {
                     if (!containerRef.current || !mountRef.current) return;
+
+                    // Only apply tilt if hover is interacting with this card context
+                    // Simple check: is the card roughly under the mouse?
+                    // Actually, the listener is ON the wrapper, so it's correct.
 
                     const rect = mountRef.current.getBoundingClientRect();
                     const centerX = rect.left + rect.width / 2;
@@ -128,6 +132,7 @@ export function GlassCard({
                 };
 
                 // Default flex column layout for children
+                instance.element.style.display = 'flex'; // Ensure flex
                 instance.element.style.flexDirection = 'column';
                 instance.element.style.transformStyle = 'preserve-3d'; // Enable 3D space for children levitation
 
@@ -152,13 +157,6 @@ export function GlassCard({
         };
     }, [type, borderRadius, tintOpacity]);
 
-    // Apply dynamic styles when style prop changes
-    useEffect(() => {
-        if (containerRef.current?.element && style) {
-            Object.assign(containerRef.current.element.style, style);
-        }
-    }, [style]);
-
     return (
         <div
             ref={mountRef}
@@ -173,7 +171,7 @@ export function GlassCard({
         >
             {isReady && (
                 <GlassProvider container={containerRef.current}>
-                    <GlassCardContent container={containerRef.current}>
+                    <GlassCardContent container={containerRef.current} padding={padding}>
                         {children}
                     </GlassCardContent>
                 </GlassProvider>
@@ -182,7 +180,7 @@ export function GlassCard({
     );
 }
 
-function GlassCardContent({ container, children }: { container: any; children: ReactNode }) {
+function GlassCardContent({ container, children, padding }: { container: any; children: ReactNode; padding?: string | number }) {
     const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -192,9 +190,16 @@ function GlassCardContent({ container, children }: { container: any; children: R
         div.style.position = 'relative';
         div.style.zIndex = '1';
         div.style.width = '100%';
+        div.style.height = '100%'; // Fill container
+        div.style.boxSizing = 'border-box'; // Ensure padding is contained
+        if (padding) {
+            div.style.padding = typeof padding === 'number' ? `${padding}px` : padding;
+        }
+
         div.style.display = 'flex';
         div.style.flexDirection = 'column';
         div.style.gap = '16px';
+        div.style.justifyContent = 'center'; // Center content vertically if card is fixed height
 
         // CRITICAL: Re-enable pointer events for the content so buttons inside work.
         // The parent (glass element) has pointer-events: none.
@@ -207,7 +212,11 @@ function GlassCardContent({ container, children }: { container: any; children: R
         setContentEl(div);
 
         // Use ResizeObserver to keep container sized to content
+        // Note: calling updateSizeFromDOM might fight with explicit sizing if we aren't careful.
+        // If wrapper has explicit size, text/glass should follow.
         const observer = new ResizeObserver(() => {
+            // If the wrapper is fixed size, we probably don't need to drive size FROM dom,
+            // but if it's auto size, we do.
             container.updateSizeFromDOM();
         });
         observer.observe(div);
@@ -222,7 +231,7 @@ function GlassCardContent({ container, children }: { container: any; children: R
             observer.disconnect();
             if (div.parentNode) div.parentNode.removeChild(div);
         };
-    }, [container]);
+    }, [container, padding]);
 
     if (!contentEl) return null;
     return createPortal(children, contentEl);
