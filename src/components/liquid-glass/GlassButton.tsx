@@ -214,6 +214,8 @@ export function GlassButton({
             position: 'relative' as const,
             zIndex: 20,
             pointerEvents: 'auto' as const,
+            backfaceVisibility: 'hidden' as const, // Stabilize 3D rendering
+            transform: 'translateZ(0)', // Force GPU layer
             borderRadius, // Ensure native outline matches shape
             ...(href ? {
                 display: 'block',

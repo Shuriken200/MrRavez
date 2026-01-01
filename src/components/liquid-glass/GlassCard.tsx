@@ -167,6 +167,7 @@ export function GlassCard({
                 position: 'relative',
                 perspective: '1200px',
                 transformStyle: 'preserve-3d',
+                willChange: 'transform', // Hint browser to optimize for transform changes
                 ...style
             }}
         >
