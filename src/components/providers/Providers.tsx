@@ -7,6 +7,20 @@ import {
     useState,
     type ReactNode,
 } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// ============================================================================
+// Query Client
+// ============================================================================
+
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 60 * 1000,
+            refetchOnWindowFocus: false,
+        },
+    },
+});
 
 // ============================================================================
 // Theme Context
@@ -31,7 +45,7 @@ export function useTheme() {
 }
 
 // ============================================================================
-// Providers Component - Theme provider
+// Providers Component - Theme provider + QueryClient
 // ============================================================================
 
 type ProvidersProps = {
@@ -67,8 +81,10 @@ export function Providers({ children }: ProvidersProps) {
     };
 
     return (
-        <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-            {children}
-        </ThemeContext.Provider>
+        <QueryClientProvider client={queryClient}>
+            <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+                {children}
+            </ThemeContext.Provider>
+        </QueryClientProvider>
     );
 }

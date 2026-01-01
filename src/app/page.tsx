@@ -4,10 +4,12 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { ThemeToggle } from "@/components";
 import { useTheme } from "@/components/providers";
 import { OrbField } from "@/components/orb-field";
+import { ProfileCardLive } from "@/components/liquid-glass/ProfileCardLive";
 
 export default function HomePage() {
     const [stage, setStage] = useState(0);
     const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+    const [scrollProgress, setScrollProgress] = useState(0);
     const rafRef = useRef<number | undefined>(undefined);
     const { theme } = useTheme();
 
@@ -20,6 +22,15 @@ export default function HomePage() {
             });
             rafRef.current = undefined;
         });
+    }, []);
+
+    // Handle scroll for fade transitions
+    const handleScroll = useCallback(() => {
+        const scrollY = window.scrollY;
+        const viewportHeight = window.innerHeight;
+        // Progress from 0 to 1 over the first viewport height of scrolling
+        const progress = Math.min(1, Math.max(0, scrollY / viewportHeight));
+        setScrollProgress(progress);
     }, []);
 
     useEffect(() => {
@@ -38,11 +49,45 @@ export default function HomePage() {
         };
     }, [handleMouseMove]);
 
+    // Add scroll listener and enable scrolling after stage 3 (animations complete)
+    useEffect(() => {
+        if (stage >= 3) {
+            // Enable scrolling by directly setting body overflow and min-height
+            document.body.style.overflowY = 'auto';
+            document.body.style.minHeight = '200vh';
+            document.documentElement.style.overflowY = 'auto';
+            
+            window.addEventListener('scroll', handleScroll);
+            // Use requestAnimationFrame to defer the initial scroll check
+            const rafId = requestAnimationFrame(() => {
+                const scrollY = window.scrollY;
+                const viewportHeight = window.innerHeight;
+                const progress = Math.min(1, Math.max(0, scrollY / viewportHeight));
+                setScrollProgress(progress);
+            });
+            return () => {
+                window.removeEventListener('scroll', handleScroll);
+                cancelAnimationFrame(rafId);
+                document.body.style.minHeight = '';
+            };
+        } else {
+            // Disable scrolling before stage 3
+            document.body.style.overflowY = 'hidden';
+            document.body.style.minHeight = '100vh';
+            document.documentElement.style.overflowY = 'hidden';
+        }
+    }, [stage, handleScroll]);
+
+    // Calculate opacities based on scroll progress
+    const greetingOpacity = 1 - scrollProgress;
+    const profileCardOpacity = scrollProgress;
+
     return (
         <>
             <style jsx global>{`
                 html, body {
                     background: #000000 !important;
+                    overflow-x: hidden;
                 }
             `}</style>
 
@@ -67,7 +112,6 @@ export default function HomePage() {
                     font-weight: 700;
                     letter-spacing: -0.04em;
                     color: #000000;
-                    opacity: 1;
                     transform: scale(0.7);
                     transition: 
                         color 8s cubic-bezier(0.4, 0, 0.2, 1),
@@ -119,6 +163,7 @@ export default function HomePage() {
                 }
             `}</style>
 
+            {/* Fixed viewport content */}
             <main className={`homepage ${stage >= 2 ? 'popped' : ''}`}>
                 <OrbField
                     visible={stage >= 2}
@@ -130,10 +175,21 @@ export default function HomePage() {
                     <ThemeToggle />
                 </div>
 
-                <h1 className={`greeting ${stage >= 1 ? 'emerging' : ''} ${stage >= 2 ? 'popped' : ''}`}>
+                {/* Greeting with scroll-based fade out */}
+                <h1 
+                    className={`greeting ${stage >= 1 ? 'emerging' : ''} ${stage >= 2 ? 'popped' : ''}`}
+                    style={{ 
+                        opacity: stage >= 3 ? greetingOpacity : undefined,
+                        visibility: greetingOpacity <= 0 ? 'hidden' : undefined,
+                    }}
+                >
                     Hi!
                 </h1>
+
+                {/* Profile card with scroll-based fade in - pre-rendered but hidden */}
+                <ProfileCardLive opacity={stage >= 3 ? profileCardOpacity : 0} />
             </main>
+
         </>
     );
 }

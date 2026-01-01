@@ -4,3 +4,5 @@ export { GlassProvider, useGlassContainer } from './GlassContext';
 export { ProfileCard } from './ProfileCard';
 export { LinksCard } from './LinksCard';
 export { ContactCard } from './ContactCard';
+export { LiveGlassCard } from './LiveGlassCard';
+export { ProfileCardLive } from './ProfileCardLive';
