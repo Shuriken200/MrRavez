@@ -524,6 +524,31 @@ export function useScrollNavigation({
         [activeSection, isJumping, isMobile, updateActiveSection, snapToMobileSection]
     );
 
+    // Handle keyboard navigation
+    const handleKeyDown = useCallback(
+        (e: KeyboardEvent) => {
+            if (!enabled || isJumping || isSnappingRef.current) return;
+
+            // Don't trigger if user is typing in an input
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                if (!hasPassedGreeting) {
+                    handleDotClick(0);
+                } else if (activeSection < 2) {
+                    handleDotClick(activeSection + 1);
+                }
+            } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                if (hasPassedGreeting && activeSection > 0) {
+                    handleDotClick(activeSection - 1);
+                }
+            }
+        },
+        [enabled, isJumping, hasPassedGreeting, activeSection, handleDotClick]
+    );
+
     // On mobile, when greeting animation completes (enabled becomes true),
     // automatically snap to the first card position so it's centered
     useEffect(() => {
@@ -542,6 +567,9 @@ export function useScrollNavigation({
     // Add scroll/touch listener and enable scrolling after ready
     useEffect(() => {
         if (enabled) {
+            // Global listeners
+            window.addEventListener("keydown", handleKeyDown);
+
             if (isMobile) {
                 // Mobile: use touch events for horizontal swiping
                 document.body.style.overflow = "hidden";
@@ -569,6 +597,7 @@ export function useScrollNavigation({
             }
 
             return () => {
+                window.removeEventListener("keydown", handleKeyDown);
                 if (isMobile) {
                     window.removeEventListener("touchstart", handleTouchStart);
                     window.removeEventListener("touchmove", handleTouchMove);
@@ -586,7 +615,7 @@ export function useScrollNavigation({
             document.body.style.minHeight = "100vh";
             document.documentElement.style.overflow = "hidden";
         }
-    }, [enabled, handleScroll, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd, isMobile]);
+    }, [enabled, handleScroll, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd, isMobile, handleKeyDown]);
 
     // Cleanup on unmount
     useEffect(() => {

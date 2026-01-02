@@ -54,25 +54,23 @@ export function GlassCard({
     const cardRef = useRef<HTMLDivElement>(null);
     const [transform, setTransform] = useState("rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
     const [isHovering, setIsHovering] = useState(false);
-    const [isTouchDevice, setIsTouchDevice] = useState(false);
     
     // Device orientation for mobile tilt (uses proven hook that works for orbs)
     const { tiltX, tiltY, hasPermission } = useDeviceOrientation();
     
-    // Detect touch-primary devices (mobile/tablet) - check on mount
-    useEffect(() => {
-        const isTouch = window.matchMedia('(hover: none)').matches || 
-                       window.matchMedia('(pointer: coarse)').matches ||
-                       'ontouchstart' in window;
-        if (isTouch !== isTouchDevice) {
-            requestAnimationFrame(() => setIsTouchDevice(isTouch));
-        }
-    }, [isTouchDevice]);
+    // Detect touch device (SSR-safe)
+    const isTouchDevice = typeof window !== 'undefined' && (
+        window.matchMedia('(hover: none)').matches || 
+        window.matchMedia('(pointer: coarse)').matches ||
+        'ontouchstart' in window
+    );
     
     // Compute mobile tilt directly from device orientation
     // tiltX/tiltY are 0-1 where 0.5 = neutral (device flat)
+    // Use hasPermission OR check if we're getting real orientation data (tilt != 0.5)
+    const hasOrientationData = hasPermission || (tiltX !== 0.5 || tiltY !== 0.5);
     let mobileTiltTransform: string | null = null;
-    if (isTouchDevice && hasPermission) {
+    if (isTouchDevice && hasOrientationData) {
         const maxTilt = 6; // Double the desktop max (3 degrees)
         // Center the values: 0.5 becomes 0, range becomes -0.5 to 0.5
         // Then scale to max rotation (0.5 * 2 * maxTilt = maxTilt at full tilt)
