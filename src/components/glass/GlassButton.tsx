@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState, useRef, useCallback, useEffect } from "react";
 
 interface GlassButtonProps {
     icon: ReactNode;
@@ -11,6 +11,33 @@ interface GlassButtonProps {
 }
 
 export function GlassButton({ icon, label, href, target, rel }: GlassButtonProps) {
+    const [isHovered, setIsHovered] = useState(false);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const supportsHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches;
+
+    const handleMouseEnter = useCallback(() => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+        setIsHovered(true);
+    }, []);
+
+    const handleMouseLeave = useCallback(() => {
+        // Small delay before removing hover to prevent flickering at edges
+        timeoutRef.current = setTimeout(() => {
+            setIsHovered(false);
+        }, 100);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
+
     return (
         <>
             <style suppressHydrationWarning dangerouslySetInnerHTML={{
@@ -37,6 +64,12 @@ export function GlassButton({ icon, label, href, target, rel }: GlassButtonProps
                         transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
                         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
                     }
+                    .glass-button-link.is-hovered {
+                        background: rgba(255, 255, 255, 0.2);
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        transform: translateZ(50px) scale(1.05);
+                        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                    }
                     .glass-button-content {
                         display: flex;
                         align-items: center;
@@ -46,6 +79,9 @@ export function GlassButton({ icon, label, href, target, rel }: GlassButtonProps
                         color: var(--color-white, #ffffff);
                         transition: color 0.25s ease;
                     }
+                    .glass-button-link.is-hovered .glass-button-content {
+                        color: var(--color-maroon, #4E0506);
+                    }
                     .glass-button-arrow {
                         opacity: 0.8;
                         display: flex;
@@ -53,6 +89,9 @@ export function GlassButton({ icon, label, href, target, rel }: GlassButtonProps
                         flex-shrink: 0;
                         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                         transform: translateX(-4px);
+                    }
+                    .glass-button-link.is-hovered .glass-button-arrow {
+                        transform: translateX(4px);
                     }
                     .glass-button-icon {
                         width: 64px;
@@ -74,34 +113,6 @@ export function GlassButton({ icon, label, href, target, rel }: GlassButtonProps
                         white-space: nowrap;
                         word-break: keep-all;
                         overflow-wrap: normal;
-                    }
-                    .glass-button-link:focus-visible {
-                        background: rgba(255, 255, 255, 0.2);
-                        border: 1px solid rgba(255, 255, 255, 0.3);
-                        transform: translateZ(50px) scale(1.05);
-                        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                    }
-                    .glass-button-link:focus-visible .glass-button-content {
-                        color: var(--color-maroon, #4E0506);
-                    }
-                    .glass-button-link:focus-visible .glass-button-arrow {
-                        transform: translateX(4px);
-                    }
-                    
-                    /* Hover styles - only on devices that support hover */
-                    @media (hover: hover) {
-                        .glass-button-link:hover {
-                            background: rgba(255, 255, 255, 0.2);
-                            border: 1px solid rgba(255, 255, 255, 0.3);
-                            transform: translateZ(50px) scale(1.05);
-                            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-                        }
-                        .glass-button-link:hover .glass-button-content {
-                            color: var(--color-maroon, #4E0506);
-                        }
-                        .glass-button-link:hover .glass-button-arrow {
-                            transform: translateX(4px);
-                        }
                     }
                     
                     @media (max-width: 480px) {
@@ -133,8 +144,9 @@ export function GlassButton({ icon, label, href, target, rel }: GlassButtonProps
                 href={href}
                 target={target}
                 rel={rel}
-                className="glass-button-link"
-                onMouseDown={(e) => e.preventDefault()}
+                className={`glass-button-link${supportsHover && isHovered ? ' is-hovered' : ''}`}
+                onMouseEnter={supportsHover ? handleMouseEnter : undefined}
+                onMouseLeave={supportsHover ? handleMouseLeave : undefined}
             >
                 <div className="glass-button-content">
                     <span className="glass-button-icon">
