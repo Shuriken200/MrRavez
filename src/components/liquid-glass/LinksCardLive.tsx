@@ -59,10 +59,11 @@ interface LinksCardLiveProps {
     opacity?: number;
     entryProgress?: number;
     exitProgress?: number;
+    mobileOffset?: number;
     style?: React.CSSProperties;
 }
 
-export function LinksCardLive({ opacity = 1, entryProgress = 1, exitProgress = 0, style }: LinksCardLiveProps) {
+export function LinksCardLive({ opacity = 1, entryProgress = 1, exitProgress = 0, mobileOffset = 0, style }: LinksCardLiveProps) {
     return (
         <LiveGlassCard
             style={{
@@ -80,6 +81,7 @@ export function LinksCardLive({ opacity = 1, entryProgress = 1, exitProgress = 0
             opacity={opacity}
             entryProgress={entryProgress}
             exitProgress={exitProgress}
+            mobileOffset={mobileOffset}
         >
             <h2 style={{
                 margin: '0 0 8px 0',

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useCallback } from "react";
 
 interface GlassButtonLiveProps {
     icon: ReactNode;
@@ -10,11 +10,37 @@ interface GlassButtonLiveProps {
     rel?: string;
 }
 
+// Mobile breakpoint
+const MOBILE_BREAKPOINT = 768;
+
 export function GlassButtonLive({ icon, label, href, target, rel }: GlassButtonLiveProps) {
     const [isHovered, setIsHovered] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+    const [isPressed, setIsPressed] = useState(false);
     
-    const isActive = isHovered || isFocused;
+    const isActive = isHovered || isFocused || isPressed;
+
+    // Handle click with animation delay on mobile
+    const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+        // Check if mobile
+        if (window.innerWidth < MOBILE_BREAKPOINT) {
+            e.preventDefault();
+            
+            // Trigger pressed state to show animation
+            setIsPressed(true);
+            
+            // Navigate after animation plays
+            setTimeout(() => {
+                if (target === '_blank') {
+                    window.open(href, target, rel ? `noopener,noreferrer` : undefined);
+                } else {
+                    window.location.href = href;
+                }
+                // Reset pressed state after navigation starts
+                setTimeout(() => setIsPressed(false), 100);
+            }, 250); // Animation duration
+        }
+    }, [href, target, rel]);
 
     return (
         <>
@@ -37,12 +63,14 @@ export function GlassButtonLive({ icon, label, href, target, rel }: GlassButtonL
                 href={href}
                 target={target}
                 rel={rel}
+                onClick={handleClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 style={{
                     outline: 'none',
+                    WebkitTapHighlightColor: 'transparent',
                     position: 'relative',
                     display: 'flex',
                     alignItems: 'center',

@@ -73,6 +73,7 @@ export function ScrollDotIndicator({
                     border: none;
                     padding: 0;
                     outline: none;
+                    -webkit-tap-highlight-color: transparent;
                 }
 
                 .dot:hover {
@@ -80,8 +81,12 @@ export function ScrollDotIndicator({
                 }
 
                 .dot:focus-visible {
-                    outline: 2px solid ${activeColor};
+                    outline: 2px solid var(--color-maroon, #4E0506);
                     outline-offset: 2px;
+                }
+
+                .dot:active {
+                    background-color: var(--color-maroon, #4E0506) !important;
                 }
 
                 .dot.active {

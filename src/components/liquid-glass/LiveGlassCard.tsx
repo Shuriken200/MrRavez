@@ -13,6 +13,8 @@ interface LiveGlassCardProps {
     entryProgress?: number;
     /** Exit animation progress (0-1), controls scale and translateY for exit */
     exitProgress?: number;
+    /** Mobile horizontal offset in vw units for swipe animation */
+    mobileOffset?: number;
 }
 
 export function LiveGlassCard({
@@ -24,6 +26,7 @@ export function LiveGlassCard({
     opacity = 1,
     entryProgress = 1,
     exitProgress = 0,
+    mobileOffset = 0,
 }: LiveGlassCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
     const [transform, setTransform] = useState("rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
@@ -133,7 +136,7 @@ export function LiveGlassCard({
                 visibility: isVisible ? "visible" : "hidden",
                 pointerEvents: opacity > 0.01 ? "auto" : "none",
                 transition: "opacity 0.4s ease-in-out",
-                transform: `translateY(${finalTranslateY}px) scale(${finalScale}) rotateX(${finalRotateX}deg)`,
+                transform: `translateX(${mobileOffset}vw) translateY(${finalTranslateY}px) scale(${finalScale}) rotateX(${finalRotateX}deg)`,
                 ...style,
             }}
         >

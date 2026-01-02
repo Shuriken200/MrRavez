@@ -9,10 +9,11 @@ interface ProfileCardLiveProps {
     opacity?: number;
     entryProgress?: number;
     exitProgress?: number;
+    mobileOffset?: number;
     style?: React.CSSProperties;
 }
 
-export function ProfileCardLive({ opacity = 1, entryProgress = 1, exitProgress = 0, style }: ProfileCardLiveProps) {
+export function ProfileCardLive({ opacity = 1, entryProgress = 1, exitProgress = 0, mobileOffset = 0, style }: ProfileCardLiveProps) {
     const { data: avatarUrl } = useGitHubAvatar(siteConfig.identity.githubUserId, 260);
 
     return (
@@ -32,6 +33,7 @@ export function ProfileCardLive({ opacity = 1, entryProgress = 1, exitProgress =
             opacity={opacity}
             entryProgress={entryProgress}
             exitProgress={exitProgress}
+            mobileOffset={mobileOffset}
         >
             <style dangerouslySetInnerHTML={{
                 __html: `

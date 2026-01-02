@@ -492,6 +492,13 @@ export default function HomePage() {
     const contactOpacity = contactEntry;
     const contactEntryProgress = contactEntry;
 
+    // Mobile horizontal swipe offset (percentage of viewport width)
+    // Each card moves based on distance from its resting point
+    const mobileOffsetMultiplier = isMobile ? 100 : 0; // 100% = 1vw per 0.01 progress
+    const profileOffset = isMobile ? (scrollProgress - RESTING_POINTS[0]) * -mobileOffsetMultiplier : 0;
+    const linksOffset = isMobile ? (scrollProgress - RESTING_POINTS[1]) * -mobileOffsetMultiplier : 0;
+    const contactOffset = isMobile ? (scrollProgress - RESTING_POINTS[2]) * -mobileOffsetMultiplier : 0;
+
     return (
         <>
             <style jsx global>{`
@@ -609,6 +616,7 @@ export default function HomePage() {
                     opacity={stage >= 3 ? (isJumping ? 0 : profileOpacity) : 0} 
                     entryProgress={profileEntryProgress}
                     exitProgress={profileExitProgress}
+                    mobileOffset={profileOffset}
                 />
 
                 {/* Links card with scroll-based fade in/out */}
@@ -616,12 +624,14 @@ export default function HomePage() {
                     opacity={stage >= 3 ? (isJumping ? 0 : linksOpacity) : 0}
                     entryProgress={linksEntryProgress}
                     exitProgress={linksExitProgress}
+                    mobileOffset={linksOffset}
                 />
 
                 {/* Contact card with scroll-based fade in */}
                 <ContactCardLive 
                     opacity={stage >= 3 ? (isJumping ? 0 : contactOpacity) : 0}
                     entryProgress={contactEntryProgress}
+                    mobileOffset={contactOffset}
                 />
 
                 {/* Dot navigation indicator - 3 sections: Profile, Links, Contact */}
