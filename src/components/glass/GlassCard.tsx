@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, ReactNode, useState, useEffect, useId } from "react";
+import { useRef, ReactNode, useState, useEffect } from "react";
 
 interface GlassCardProps {
     children?: ReactNode;
@@ -23,6 +23,19 @@ interface GlassCardProps {
     mobilePadding?: string | number;
 }
 
+// Global styles for mobile overrides using CSS custom properties
+const globalMobileStyles = `
+    @media (max-width: 480px) {
+        .glass-card-mobile .glass-card-container,
+        .glass-card-mobile .glass-card-bg {
+            border-radius: var(--glass-card-mobile-radius) !important;
+        }
+        .glass-card-mobile .glass-card-content {
+            padding: var(--glass-card-mobile-padding) !important;
+        }
+    }
+`;
+
 export function GlassCard({
     children,
     className,
@@ -37,7 +50,6 @@ export function GlassCard({
     mobileBorderRadius,
     mobilePadding,
 }: GlassCardProps) {
-    const cardId = useId().replace(/:/g, '');
     const cardRef = useRef<HTMLDivElement>(null);
     const [transform, setTransform] = useState("rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
     const [isHovering, setIsHovering] = useState(false);
@@ -162,24 +174,19 @@ export function GlassCard({
         rotateX(${finalRotateX}deg)
     `.replace(/\s+/g, ' ').trim();
 
-    // Generate mobile CSS if mobile-specific values are provided
+    // Check if mobile overrides are provided
     const hasMobileOverrides = mobileBorderRadius !== undefined || mobilePadding !== undefined;
-    const mobileStyles = hasMobileOverrides ? `
-        @media (max-width: 480px) {
-            .glass-card-${cardId} .glass-card-container,
-            .glass-card-${cardId} .glass-card-bg {
-                border-radius: ${mobileBorderRadius ?? borderRadius}px !important;
-            }
-            .glass-card-${cardId} .glass-card-content {
-                padding: ${mobilePaddingValue} !important;
-            }
-        }
-    ` : '';
+
+    // Build CSS custom properties for mobile overrides
+    const cssVars = hasMobileOverrides ? {
+        '--glass-card-mobile-radius': `${mobileBorderRadius ?? borderRadius}px`,
+        '--glass-card-mobile-padding': mobilePaddingValue,
+    } as React.CSSProperties : {};
 
     return (
         <div
             ref={cardRef}
-            className={`glass-card-${cardId} ${className || ''}`}
+            className={`${hasMobileOverrides ? 'glass-card-mobile' : ''} ${className || ''}`.trim() || undefined}
             style={{
                 position: "relative",
                 perspective: "1200px",
@@ -192,11 +199,12 @@ export function GlassCard({
                 pointerEvents: opacity > 0.01 ? "auto" : "none",
                 // No CSS transition - JS handles smooth animation via requestAnimationFrame
                 transform: combinedTransform,
+                ...cssVars,
                 ...styleWithoutTransform,
             }}
         >
             {hasMobileOverrides && (
-                <style suppressHydrationWarning dangerouslySetInnerHTML={{ __html: mobileStyles }} />
+                <style suppressHydrationWarning dangerouslySetInnerHTML={{ __html: globalMobileStyles }} />
             )}
             {/* Glass container with 3D tilt */}
             <div
