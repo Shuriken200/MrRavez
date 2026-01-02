@@ -122,6 +122,7 @@ export function GlassButton({ icon, label, href, target, rel }: GlassButtonProps
                 target={target}
                 rel={rel}
                 className="glass-button-link"
+                onMouseDown={(e) => e.preventDefault()}
             >
                 <div className="glass-button-content">
                     <span className="glass-button-icon">
