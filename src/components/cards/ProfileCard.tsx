@@ -80,18 +80,26 @@ export function ProfileCard({ opacity = 1, entryProgress = 1, exitProgress = 0, 
                     position: relative;
                     width: 140px;
                     height: 140px;
-                    border-radius: 50%;
-                    overflow: hidden;
                     transform-style: preserve-3d;
                     transform-origin: center center;
                     transform: scale(1);
                     will-change: transform;
                     transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
                                 box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                    border-radius: 50%;
+                }
+                /* Separate clipping layer to fix Firefox border-radius + 3D transform bug */
+                .profile-photo-clipper {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    isolation: isolate;
                 }
                 .profile-photo {
                     border-radius: 50%;
                     object-fit: cover;
+                    display: block;
                 }
                 .profile-name {
                     margin: 0;
@@ -143,14 +151,16 @@ export function ProfileCard({ opacity = 1, entryProgress = 1, exitProgress = 0, 
                                 : '0 8px 32px rgba(0, 0, 0, 0.3)',
                         }}
                     >
-                        <Image
-                            src="/leon.jpeg"
-                            alt={siteConfig.identity.name}
-                            width={140}
-                            height={140}
-                            className="profile-photo"
-                            priority
-                        />
+                        <div className="profile-photo-clipper">
+                            <Image
+                                src="/leon.jpeg"
+                                alt={siteConfig.identity.name}
+                                width={140}
+                                height={140}
+                                className="profile-photo"
+                                priority
+                            />
+                        </div>
                     </div>
                 </div>
 
