@@ -21,7 +21,7 @@ export function ProfileCard() {
             padding={40}
             borderRadius={60}
         >
-            <style dangerouslySetInnerHTML={{
+            <style suppressHydrationWarning dangerouslySetInnerHTML={{
                 __html: `
                 .profile-content {
                     display: flex;

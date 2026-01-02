@@ -53,7 +53,7 @@ export function ProfileCardLive({ opacity = 1, entryProgress = 1, exitProgress =
             mobileOffset={mobileOffset}
             mobileScale={mobileScale}
         >
-            <style dangerouslySetInnerHTML={{
+            <style suppressHydrationWarning dangerouslySetInnerHTML={{
                 __html: `
                 .profile-content-live {
                     display: flex;

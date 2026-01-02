@@ -32,7 +32,7 @@ export function LinksCard() {
                 Links
             </h2>
 
-            <style dangerouslySetInnerHTML={{
+            <style suppressHydrationWarning dangerouslySetInnerHTML={{
                 __html: `
                 .glass-link-content {
                     color: var(--color-white);

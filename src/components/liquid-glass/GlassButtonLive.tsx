@@ -61,7 +61,7 @@ export function GlassButtonLive({ icon, label, href, target, rel }: GlassButtonL
 
     return (
         <>
-            <style dangerouslySetInnerHTML={{
+            <style suppressHydrationWarning dangerouslySetInnerHTML={{
                 __html: `
                     .glass-button-arrow {
                         opacity: 0.8;

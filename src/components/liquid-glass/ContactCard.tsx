@@ -16,7 +16,7 @@ export function ContactCard() {
             padding={40}
             borderRadius={60}
         >
-            <style dangerouslySetInnerHTML={{
+            <style suppressHydrationWarning dangerouslySetInnerHTML={{
                 __html: `
                 .contact-content {
                     display: flex;

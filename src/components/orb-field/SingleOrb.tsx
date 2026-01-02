@@ -48,13 +48,13 @@ export function SingleOrb({ config, state, focalZ, tiltX, tiltY }: SingleOrbProp
                 background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
                 filter: `blur(${blur * scale}px)`,
                 opacity: finalOpacity,
-                left: `${displayX}%`,
-                top: `${displayY}%`,
-                transform: 'translate(-50%, -50%)',
+                left: 0,
+                top: 0,
+                // Use transform for GPU-accelerated positioning (prevents mobile flickering)
+                transform: `translate3d(calc(${displayX}vw - 50%), calc(${displayY}vh - 50%), 0)`,
                 boxShadow: scaledGlow > 0 ? `0 0 ${scaledSize * 2}px ${glowColor}` : 'none',
-                // Use CSS transition for extra smoothness
-                transition: 'width 0.1s ease-out, height 0.1s ease-out, opacity 0.1s ease-out',
-                willChange: 'left, top, width, height, opacity, filter',
+                // Force GPU compositing layer for smooth rendering on mobile
+                backfaceVisibility: 'hidden',
                 pointerEvents: 'none',
             }}
         />
