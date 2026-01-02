@@ -20,8 +20,8 @@ const RESTING_POINTS = [0.75, 1.75, 2.75];
 // Minimum scroll position once greeting is passed (profile card fully visible position)
 const MIN_SCROLL_AFTER_GREETING = 0.75;
 
-// Scroll snap debounce delay (ms) - longer delay for gentler snapping
-const SNAP_DELAY = 500;
+// Scroll snap debounce delay (ms) - quick response for snappy feel
+const SNAP_DELAY = 120;
 
 // Mobile breakpoint
 const MOBILE_BREAKPOINT = 768;
@@ -38,6 +38,7 @@ export default function HomePage() {
     const rafRef = useRef<number | undefined>(undefined);
     const snapTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
     const isSnappingRef = useRef(false);
+    const snapAnimationRef = useRef<number | undefined>(undefined); // Track snap animation for cancellation
     const touchStartRef = useRef<{ x: number; time: number; section: number; lastX: number; lastTime: number } | null>(null);
     const { theme } = useTheme();
 
@@ -63,31 +64,43 @@ export default function HomePage() {
     }, []);
 
 
-    // Smooth scroll/animate to a resting point with parabolic animation for natural feel
+    // Cancel any ongoing snap animation
+    const cancelSnap = useCallback(() => {
+        if (snapAnimationRef.current) {
+            cancelAnimationFrame(snapAnimationRef.current);
+            snapAnimationRef.current = undefined;
+        }
+        isSnappingRef.current = false;
+    }, []);
+
+    // Smooth scroll/animate to a resting point with responsive animation
     const scrollToRestingPoint = useCallback((targetProgress: number, startProgress?: number) => {
         const currentProgress = startProgress ?? (isMobile ? scrollProgress : window.scrollY / window.innerHeight);
         const distance = targetProgress - currentProgress;
         
         // Don't animate if already very close
-        if (Math.abs(distance) < 0.02) return;
+        if (Math.abs(distance) < 0.02) {
+            isSnappingRef.current = false;
+            return;
+        }
         
+        // Cancel any existing snap animation
+        cancelSnap();
         isSnappingRef.current = true;
         
-        // Duration scales with distance for natural feel
-        // Base: ~2400ms for small distances, up to ~6000ms for large distances
-        const duration = Math.min(6000, Math.max(2400, Math.abs(distance) * 7500));
+        // Short, responsive durations: 180-350ms based on distance
+        const duration = Math.min(350, Math.max(180, Math.abs(distance) * 250));
         const startTime = performance.now();
         
         const animateScroll = (currentTime: number) => {
+            // Check if cancelled
+            if (!isSnappingRef.current) return;
+            
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
             
-            // Parabolic easing: starts slow, accelerates, then decelerates naturally
-            // Like a ball rolling into a valley and settling at the bottom
-            // Using ease-in-out quint for a smooth parabolic feel
-            const eased = progress < 0.5
-                ? 16 * progress * progress * progress * progress * progress
-                : 1 - Math.pow(-2 * progress + 2, 5) / 2;
+            // Smooth ease-out cubic for quick, natural deceleration
+            const eased = 1 - Math.pow(1 - progress, 3);
             
             const newProgress = currentProgress + distance * eased;
             
@@ -103,14 +116,15 @@ export default function HomePage() {
             }
             
             if (progress < 1) {
-                requestAnimationFrame(animateScroll);
+                snapAnimationRef.current = requestAnimationFrame(animateScroll);
             } else {
                 isSnappingRef.current = false;
+                snapAnimationRef.current = undefined;
             }
         };
         
-        requestAnimationFrame(animateScroll);
-    }, [isMobile, scrollProgress]);
+        snapAnimationRef.current = requestAnimationFrame(animateScroll);
+    }, [isMobile, scrollProgress, cancelSnap]);
 
     // Find nearest resting point
     const findNearestRestingPoint = useCallback((progress: number): number => {
@@ -144,6 +158,11 @@ export default function HomePage() {
     const handleScroll = useCallback(() => {
         if (isMobile) return; // Mobile uses touch events
         
+        // Cancel any ongoing snap animation - user scroll takes priority
+        if (isSnappingRef.current) {
+            cancelSnap();
+        }
+        
         const scrollY = window.scrollY;
         const viewportHeight = window.innerHeight;
         let progress = scrollY / viewportHeight;
@@ -170,9 +189,6 @@ export default function HomePage() {
             clearTimeout(snapTimeoutRef.current);
         }
         
-        // Don't snap if we're currently in a snap animation
-        if (isSnappingRef.current) return;
-        
         // Set up snap timeout - will trigger after user stops scrolling
         snapTimeoutRef.current = setTimeout(() => {
             let currentProgress = window.scrollY / window.innerHeight;
@@ -185,11 +201,11 @@ export default function HomePage() {
             const nearestPoint = findNearestRestingPoint(currentProgress);
             
             // Only snap if we're not already at the resting point
-            if (Math.abs(currentProgress - nearestPoint) > 0.08) {
+            if (Math.abs(currentProgress - nearestPoint) > 0.03) {
                 scrollToRestingPoint(nearestPoint, currentProgress);
             }
         }, SNAP_DELAY);
-    }, [hasPassedGreeting, findNearestRestingPoint, scrollToRestingPoint, isMobile, updateActiveSection]);
+    }, [hasPassedGreeting, findNearestRestingPoint, scrollToRestingPoint, isMobile, updateActiveSection, cancelSnap]);
 
     // Animate to a mobile section with smooth parabolic snap
     const snapToMobileSection = useCallback((targetSection: number, fromProgress?: number) => {
@@ -416,6 +432,7 @@ export default function HomePage() {
             window.removeEventListener('mousemove', handleMouseMove);
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             if (snapTimeoutRef.current) clearTimeout(snapTimeoutRef.current);
+            if (snapAnimationRef.current) cancelAnimationFrame(snapAnimationRef.current);
         };
     }, [handleMouseMove]);
 
