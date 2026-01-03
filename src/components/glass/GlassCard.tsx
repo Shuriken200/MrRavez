@@ -62,17 +62,21 @@ export function GlassCard({
 }: GlassCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
     const [transform, setTransform] = useState("rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
-    const [isHovering, setIsHovering] = useState(false);
     
     // Device orientation for mobile tilt (uses proven hook that works for orbs)
     const { tiltX, tiltY, hasPermission } = useDeviceOrientation();
     
-    // Detect touch device (SSR-safe)
-    const isTouchDevice = typeof window !== 'undefined' && (
-        window.matchMedia('(hover: none)').matches || 
-        window.matchMedia('(pointer: coarse)').matches ||
-        'ontouchstart' in window
-    );
+    // Detect touch device - start false for SSR, then detect on mount
+    const [isTouchDevice, setIsTouchDevice] = useState(false);
+    
+    useEffect(() => {
+        // Check for touch device on mount to avoid SSR/hydration mismatch
+        const isTouch = 
+            window.matchMedia('(hover: none)').matches || 
+            window.matchMedia('(pointer: coarse)').matches ||
+            'ontouchstart' in window;
+        setIsTouchDevice(isTouch);
+    }, []);
     
     // Compute mobile tilt directly from device orientation
     // tiltX/tiltY are 0-1 where 0.5 = neutral (device flat)
@@ -89,6 +93,10 @@ export function GlassCard({
         mobileTiltTransform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1, 1, 1)`;
     }
 
+    // Track hover state with ref to avoid closure issues in event handlers
+    const isHoveringRef = useRef(false);
+    const [isHovering, setIsHovering] = useState(false);
+
     // Desktop: Mouse-based tilt on hover
     useEffect(() => {
         // Skip mouse handling on touch devices
@@ -100,10 +108,10 @@ export function GlassCard({
         let currentRotateX = 0;
         let currentRotateY = 0;
         const smoothingFactor = 0.15;
-        const animationId: number | null = null;
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (!isHovering) return;
+            // Use ref to get current hover state, avoiding stale closure
+            if (!isHoveringRef.current) return;
 
             const rect = card.getBoundingClientRect();
             const centerX = rect.left + rect.width / 2;
@@ -123,10 +131,12 @@ export function GlassCard({
         };
 
         const handleMouseEnter = () => {
+            isHoveringRef.current = true;
             setIsHovering(true);
         };
 
         const handleMouseLeave = () => {
+            isHoveringRef.current = false;
             setIsHovering(false);
             currentRotateX = 0;
             currentRotateY = 0;
@@ -141,9 +151,8 @@ export function GlassCard({
             card.removeEventListener("mousemove", handleMouseMove);
             card.removeEventListener("mouseenter", handleMouseEnter);
             card.removeEventListener("mouseleave", handleMouseLeave);
-            if (animationId) cancelAnimationFrame(animationId);
         };
-    }, [isHovering, isTouchDevice]);
+    }, [isTouchDevice]);
 
     const paddingValue = typeof padding === "number" ? `${padding}px` : padding;
     const mobilePaddingValue = mobilePadding 
