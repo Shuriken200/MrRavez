@@ -7,7 +7,7 @@ import { useOrbPhysics } from './useOrbPhysics';
 import { SingleOrb } from './SingleOrb';
 import { useDeviceOrientation } from '@/hooks/useDeviceOrientation';
 
-export function OrbField({ visible, mouseX, mouseY, scrollDelta = 0 }: OrbFieldProps) {
+export function OrbField({ visible, mouseX, mouseY, scrollDelta = 0, isMobile = false }: OrbFieldProps) {
     const initialConfigs = useMemo(() => generateAllOrbs(), []);
     const { tiltX, tiltY } = useDeviceOrientation();
     
@@ -21,6 +21,7 @@ export function OrbField({ visible, mouseX, mouseY, scrollDelta = 0 }: OrbFieldP
         tilt,
         enabled: visible,
         scrollDelta,
+        isMobile,
     });
 
     return (

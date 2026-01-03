@@ -39,6 +39,8 @@ export interface OrbFieldProps {
     mouseY: number;
     /** Scroll delta for orb reaction (-1 to 1), orbs drift in scroll direction */
     scrollDelta?: number;
+    /** Whether the device is mobile (affects orb movement direction and sensitivity) */
+    isMobile?: boolean;
 }
 
 export interface OrbPhysicsConfig {

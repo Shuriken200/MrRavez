@@ -67,6 +67,7 @@ export function useCardTransition({
     const scrollDeltaRef = useRef(0);
     const scrollDeltaDecayRef = useRef<number | undefined>(undefined);
     const accumulatedDeltaRef = useRef(0);
+    const previousScrollProgressRef = useRef(initialProgress);
 
     // Detect mobile on mount and resize
     useEffect(() => {
@@ -119,8 +120,21 @@ export function useCardTransition({
     }, [activeSection, enabled, hasPassedGreeting]);
 
     // Decay scroll delta over time for smooth orb reaction
+    // Also track scrollProgress changes to drive orb movement
     useEffect(() => {
         const decayScrollDelta = () => {
+            // Calculate progress delta for orb movement
+            const progressDelta = scrollProgress - previousScrollProgressRef.current;
+            previousScrollProgressRef.current = scrollProgress;
+            
+            // Update scroll delta based on progress change (reduced sensitivity)
+            // Positive progressDelta = moving forward/down, negative = moving backward/up
+            // Reduced from 50 to 15 for less aggressive orb movement
+            if (Math.abs(progressDelta) > 0.0001) {
+                scrollDeltaRef.current = Math.max(-1, Math.min(1, progressDelta * 15));
+            }
+            
+            // Decay existing delta
             scrollDeltaRef.current *= SCROLL_DELTA_DECAY;
             if (Math.abs(scrollDeltaRef.current) < 0.001) {
                 scrollDeltaRef.current = 0;
@@ -138,7 +152,7 @@ export function useCardTransition({
                 cancelAnimationFrame(scrollDeltaDecayRef.current);
             }
         };
-    }, [enabled]);
+    }, [enabled, scrollProgress]);
 
     // Cancel any ongoing snap animation
     const cancelSnap = useCallback(() => {
@@ -289,10 +303,6 @@ export function useCardTransition({
 
             lastUserScrollRef.current = performance.now();
 
-            // Update scroll delta for orb reaction (normalized to -1 to 1)
-            const normalizedDelta = Math.max(-1, Math.min(1, e.deltaY / 100));
-            scrollDeltaRef.current = Math.max(-1, Math.min(1, scrollDeltaRef.current + normalizedDelta * 0.3));
-
             // Accumulate delta for programmatic scroll with 3x sensitivity
             accumulatedDeltaRef.current += e.deltaY * SCROLL_SENSITIVITY;
 
@@ -407,11 +417,7 @@ export function useCardTransition({
             const deltaX = touchStartRef.current.x - currentX;
             const viewportWidth = window.innerWidth;
 
-            // Calculate touch delta for orb reaction BEFORE updating lastX
-            const touchDelta = (currentX - touchStartRef.current.lastX) / viewportWidth;
-            scrollDeltaRef.current = Math.max(-1, Math.min(1, -touchDelta * 3));
-
-            // Now update lastX and lastTime for velocity tracking
+            // Update lastX and lastTime for velocity tracking
             touchStartRef.current.lastX = currentX;
             touchStartRef.current.lastTime = now;
 

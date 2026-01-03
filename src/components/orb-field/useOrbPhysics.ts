@@ -28,6 +28,8 @@ interface UseOrbPhysicsOptions {
     enabled: boolean;
     /** Scroll delta for orb reaction (-1 to 1), orbs drift in scroll direction */
     scrollDelta?: number;
+    /** Whether the device is mobile (affects orb movement direction and sensitivity) */
+    isMobile?: boolean;
 }
 
 export function useOrbPhysics(options: UseOrbPhysicsOptions): { 
@@ -35,7 +37,7 @@ export function useOrbPhysics(options: UseOrbPhysicsOptions): {
     focalZ: number;
     configs: OrbConfig[];
 } {
-    const { orbConfigs: initialConfigs, mousePosition, enabled, scrollDelta = 0 } = options;
+    const { orbConfigs: initialConfigs, mousePosition, enabled, scrollDelta = 0, isMobile = false } = options;
     
     // Store scroll delta in a ref so the animation loop can access latest value
     const scrollDeltaRef = useRef(scrollDelta);
@@ -307,9 +309,22 @@ export function useOrbPhysics(options: UseOrbPhysicsOptions): {
                         vy += orbRepelY;
                         
                         // Apply scroll delta influence - orbs drift in scroll direction
-                        // Larger orbs (closer) react more to scroll for parallax effect
-                        const scrollInfluence = scrollDeltaRef.current * 0.08 * (0.5 + orb.depthLayer * 0.5);
-                        vy += scrollInfluence * deltaTime * 0.01;
+                        // Smaller orbs (background/far) react more to scroll for parallax effect
+                        // Larger orbs (foreground/close) react less - move slower
+                        // Desktop: reduced sensitivity (0.02 instead of 0.08)
+                        // Mobile: half sensitivity (0.01) and horizontal movement instead of vertical
+                        // Increased speed difference: small orbs move 4x faster than large orbs
+                        const baseSensitivity = isMobile ? 0.01 : 0.02;
+                        const depthMultiplier = 2.5 - (orb.depthLayer * 2.0); // Small: 2.5x, Large: 0.5x
+                        const scrollInfluence = scrollDeltaRef.current * baseSensitivity * depthMultiplier;
+                        
+                        if (isMobile) {
+                            // On mobile, apply scroll influence horizontally (left/right)
+                            vx += scrollInfluence * deltaTime * 0.01;
+                        } else {
+                            // On desktop, apply scroll influence vertically (up/down)
+                            vy += scrollInfluence * deltaTime * 0.01;
+                        }
                     }
                     
                     const vz = state.vz + (targetVz - state.vz) * SMOOTHING + zOscillation;
