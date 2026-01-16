@@ -190,15 +190,18 @@ export class CollisionSystem {
 	 * 
 	 * The closer orbs get, the stronger the repulsion force.
 	 * Force is mass-weighted so larger orbs push smaller orbs more.
+	 * Uses deltaTime for frame-rate independent, gradual velocity changes.
 	 * 
 	 * @param orbs - Array of all orbs to check.
 	 * @param vpc - Viewport cell metrics for coordinate conversion.
-	 * @param repulsionStrength - Base strength of the repulsion force (default 50).
+	 * @param deltaTime - Time elapsed since last frame in seconds.
+	 * @param repulsionStrength - Base strength of the repulsion acceleration (default 200).
 	 */
 	static applyAvoidanceRepulsion(
 		orbs: Orb[],
 		vpc: ViewportCells,
-		repulsionStrength: number = 50
+		deltaTime: number,
+		repulsionStrength: number = 200
 	): void {
 		for (let i = 0; i < orbs.length; i++) {
 			for (let j = i + 1; j < orbs.length; j++) {
@@ -241,7 +244,8 @@ export class CollisionSystem {
 					const overlap = 1 - (dist - combinedBody) / (combinedAvoidance - combinedBody);
 
 					// Quadratic falloff for smooth repulsion (stronger when closer)
-					const force = overlap * overlap * repulsionStrength;
+					// This is now an acceleration, applied gradually via deltaTime
+					const acceleration = overlap * overlap * repulsionStrength;
 
 					// Direction from A to B (normalized) in 3D
 					const nx = dx / dist;
@@ -253,16 +257,16 @@ export class CollisionSystem {
 					const massB = orbB.size;
 					const totalMass = massA + massB;
 
-					const forceA = force * (massB / totalMass);
-					const forceB = force * (massA / totalMass);
+					const accelA = acceleration * (massB / totalMass);
+					const accelB = acceleration * (massA / totalMass);
 
-					// Apply 3D repulsion (push orbs apart)
-					orbA.vx -= forceA * nx;
-					orbA.vy -= forceA * ny;
-					orbA.vz -= forceA * nz;
-					orbB.vx += forceB * nx;
-					orbB.vy += forceB * ny;
-					orbB.vz += forceB * nz;
+					// Apply 3D repulsion as gradual acceleration (push orbs apart)
+					orbA.vx -= accelA * nx * deltaTime;
+					orbA.vy -= accelA * ny * deltaTime;
+					orbA.vz -= accelA * nz * deltaTime;
+					orbB.vx += accelB * nx * deltaTime;
+					orbB.vy += accelB * ny * deltaTime;
+					orbB.vz += accelB * nz * deltaTime;
 				}
 			}
 		}

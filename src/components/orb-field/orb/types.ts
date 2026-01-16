@@ -38,4 +38,10 @@ export interface Orb {
 
 	/** Orb diameter in grid cells (3D sphere). */
 	size: number;
+
+	/** Timestamp when the orb was created (milliseconds since epoch). */
+	createdAt: number;
+
+	/** Lifetime duration in milliseconds. */
+	lifetimeMs: number;
 }

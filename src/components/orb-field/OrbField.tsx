@@ -102,9 +102,11 @@ export function OrbField({
 		selectedOrbData,
 		selectedOrbIdRef,
 		createOrb,
+		spawnOrbBurst,
 		deleteOrb,
 		selectOrb,
 		updateSelectedOrbData,
+		syncOrbsState,
 	} = useOrbManager();
 
 	// =========================================================================
@@ -211,7 +213,7 @@ export function OrbField({
 			}
 
 			// Phase 2: Apply soft avoidance repulsion (when avoidance zones overlap)
-			CollisionSystem.applyAvoidanceRepulsion(currentOrbs, vpc);
+			CollisionSystem.applyAvoidanceRepulsion(currentOrbs, vpc, deltaTime);
 
 			// Phase 3: Resolve orb-orb hard collisions (mutual elastic bounce)
 			CollisionSystem.resolveOrbOrbCollisions(currentOrbs, vpc);
@@ -257,6 +259,17 @@ export function OrbField({
 			for (const orb of currentOrbs) {
 				OrbPhysics.markOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
 			}
+
+			// Phase 9: Check and remove expired orbs
+			const now = performance.now();
+			const expiredOrbs = currentOrbs.filter(orb => (now - orb.createdAt) > orb.lifetimeMs);
+			if (expiredOrbs.length > 0) {
+				for (const expiredOrb of expiredOrbs) {
+					OrbPhysics.clearOrbCircular(grid, expiredOrb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
+				}
+				orbsRef.current = currentOrbs.filter(orb => (now - orb.createdAt) <= orb.lifetimeMs);
+				syncOrbsState(); // Update React state for UI
+			}
 		} else if (easedProgress >= 1 && isPausedRef.current) {
 			// When paused, still mark orbs for rendering but don't update physics
 			const currentOrbs = orbsRef.current;
@@ -301,7 +314,7 @@ export function OrbField({
 		if (IS_DEBUG_MODE && selectedOrbIdRef.current) {
 			updateSelectedOrbData();
 		}
-	}, [orbsRef, selectedOrbIdRef, updateSelectedOrbData]);
+	}, [orbsRef, selectedOrbIdRef, updateSelectedOrbData, syncOrbsState]);
 
 	// =========================================================================
 	// 4. Animation Loop Controller
@@ -321,6 +334,16 @@ export function OrbField({
 			},
 			() => {
 				hasAnimatedRef.current = true;
+
+				// Spawn orb burst from center after grid reveal completes
+				const grid = gridRef.current;
+				const vpc = viewportCellsRef.current;
+				const ws = windowSizeRef.current;
+				if (grid && vpc && ws.width > 0) {
+					const centerX = ws.width / 2;
+					const centerY = ws.height / 2;
+					spawnOrbBurst(centerX, centerY, grid, vpc);
+				}
 
 				// Continue with physics loop after reveal
 				const physicsLoop = () => {
@@ -344,7 +367,7 @@ export function OrbField({
 			if (loopIdRef.current) cancelAnimationFrame(loopIdRef.current);
 			hasAnimatedRef.current = false;
 		};
-	}, [visible, gridConfig, runLoop, revealConfig.duration]);
+	}, [visible, gridConfig, runLoop, revealConfig.duration, spawnOrbBurst]);
 
 	// =========================================================================
 	// 5. Interaction Handlers
