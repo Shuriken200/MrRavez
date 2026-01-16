@@ -263,4 +263,67 @@ export class OrbPhysics {
 			}
 		}
 	}
+
+	/**
+	 * Calculates the preferred Z-layer for an orb based on its size.
+	 * Uses logarithmic mapping so smaller orbs prefer the front (low Z),
+	 * and larger orbs prefer the back (high Z).
+	 * 
+	 * Formula scales dynamically with maxSize and totalLayers:
+	 * - Size 1 always maps to layer 0 (front)
+	 * - Size maxSize always maps to layer (totalLayers - 1) (back)
+	 * - Intermediate sizes follow a logarithmic curve
+	 * 
+	 * @param size - The orb's size.
+	 * @param maxSize - Maximum allowed orb size.
+	 * @param totalLayers - Total number of Z-layers in the grid.
+	 * @returns The preferred layer for this orb (0 to totalLayers-1).
+	 */
+	static getPreferredLayer(size: number, maxSize: number, totalLayers: number): number {
+		// Logarithmic mapping: small orbs spread across front, large clustered at back
+		// log(1) = 0, so size 1 maps to layer 0
+		// log(maxSize) / log(maxSize) = 1, so maxSize maps to top layer
+		const normalizedPosition = Math.log(size) / Math.log(maxSize);
+		return (totalLayers - 1) * normalizedPosition;
+	}
+
+	/**
+	 * Applies a gentle Z-axis attraction force toward the orb's preferred layer.
+	 * The force is proportional to the distance from the preferred layer,
+	 * creating a very slow drift that allows collisions to override it.
+	 * 
+	 * This is applied continuously, so orbs will always slowly return to
+	 * their preferred depth even after being pushed away by collisions.
+	 * 
+	 * @param orb - The orb to apply attraction to.
+	 * @param maxSize - Maximum allowed orb size.
+	 * @param totalLayers - Total number of Z-layers in the grid.
+	 * @param strength - Attraction strength (layers/s² acceleration).
+	 * @param deltaTime - Time elapsed since last frame in seconds.
+	 */
+	static applyLayerAttraction(
+		orb: Orb,
+		maxSize: number,
+		totalLayers: number,
+		strength: number,
+		deltaTime: number
+	): void {
+		const preferredLayer = this.getPreferredLayer(orb.size, maxSize, totalLayers);
+		const distanceToPreferred = preferredLayer - orb.z;
+
+		// Apply acceleration proportional to distance (spring-like attraction)
+		// Very weak force - takes many seconds to settle
+		const acceleration = distanceToPreferred * strength;
+
+		// Apply acceleration to Z velocity
+		orb.vz += acceleration * deltaTime;
+
+		// Cap Z velocity to prevent oscillation and ensure gentle movement
+		// Max drift speed of 0.5 layers/second
+		const maxDriftSpeed = 0.5;
+		if (Math.abs(orb.vz) > maxDriftSpeed) {
+			orb.vz = Math.sign(orb.vz) * maxDriftSpeed;
+		}
+	}
 }
+

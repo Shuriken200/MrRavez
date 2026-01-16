@@ -19,7 +19,7 @@ import {
 	type GridRevealConfig,
 	type GridStyleConfig,
 } from './shared/config';
-import { DEFAULT_SPEED_LIMIT_CONFIG } from './orb/config';
+import { DEFAULT_SPEED_LIMIT_CONFIG, DEFAULT_ORB_SPAWN_CONFIG, DEFAULT_LAYER_ATTRACTION_CONFIG } from './orb/config';
 import { GridRenderer } from './grid/visuals/GridRenderer';
 import { GridAnimator } from './grid/visuals/GridAnimator';
 import { OrbDebugPanel } from './debug-info/components/OrbDebugPanel';
@@ -57,7 +57,7 @@ interface OrbFieldProps {
  */
 export function OrbField({
 	visible = true,
-	layer: initialLayer = 10, // Start in middle layer (of 20) for 3D movement
+	layer: initialLayer = 50, // Start in middle layer (of 100) for 3D movement
 	opacity = DEFAULT_ORBFIELD_CONFIG.defaultOpacity,
 	revealConfig: revealOverrides,
 	styleConfig: styleOverrides,
@@ -243,7 +243,15 @@ export function OrbField({
 				OrbPhysics.applySpeedLimit(orb, baseMaxSpeed, minMaxSpeed, decelerationRate, deltaTime);
 			}
 
-			// Phase 7: Re-mark at new positions for rendering
+			// Phase 7: Apply layer attraction (orbs drift toward preferred depth)
+			const { maxSize } = DEFAULT_ORB_SPAWN_CONFIG;
+			const { attractionStrength } = DEFAULT_LAYER_ATTRACTION_CONFIG;
+			const totalLayers = grid.config.layers;
+			for (const orb of currentOrbs) {
+				OrbPhysics.applyLayerAttraction(orb, maxSize, totalLayers, attractionStrength, deltaTime);
+			}
+
+			// Phase 8: Re-mark at new positions for rendering
 			grid.clearDynamic();
 			for (const orb of currentOrbs) {
 				OrbPhysics.markOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);

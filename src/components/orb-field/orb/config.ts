@@ -31,6 +31,14 @@ export interface OrbSpeedLimitConfig {
 }
 
 /**
+ * Configuration for orb layer attraction behavior.
+ */
+export interface OrbLayerAttractionConfig {
+	/** Strength of attraction toward preferred layer (very low for gentle drift). */
+	attractionStrength: number;
+}
+
+/**
  * Configuration for orb debug visualization.
  */
 export interface OrbDebugVisualConfig {
@@ -56,7 +64,7 @@ export const DEFAULT_ORB_SPAWN_CONFIG: OrbSpawnConfig = {
 	maxSpeed: 150,
 	defaultSize: 1,
 	minSize: 1,
-	maxSize: 10,
+	maxSize: 40,
 };
 
 /**
@@ -67,6 +75,14 @@ export const DEFAULT_SPEED_LIMIT_CONFIG: OrbSpeedLimitConfig = {
 	baseMaxSpeed: 200,      // Size 1 orbs can go up to 200 px/s
 	decelerationRate: 0.05, // 5% per frame toward max speed (smooth curve)
 	minMaxSpeed: 50,        // Even the largest orbs can go at least 50 px/s
+};
+
+/**
+ * Default layer attraction configuration for orbs.
+ * Orbs are gently pulled toward their preferred Z-layer based on size.
+ */
+export const DEFAULT_LAYER_ATTRACTION_CONFIG: OrbLayerAttractionConfig = {
+	attractionStrength: 0.5, // Very gentle - units are layers/s² acceleration
 };
 
 /**

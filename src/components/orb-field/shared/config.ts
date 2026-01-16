@@ -74,7 +74,7 @@ export interface OrbFieldConfig {
 export const DEFAULT_GRID_CONFIG: GridSystemConfig = {
 	targetCellSizeCm: 0.5,
 	extensionMultiplier: 1,
-	layers: 20,
+	layers: 100,
 	baseDpi: 96,
 };
 
