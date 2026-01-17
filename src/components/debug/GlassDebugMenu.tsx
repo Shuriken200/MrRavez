@@ -21,6 +21,8 @@ const toggleItems: ToggleItem[] = [
 	{ key: "showArrowVector", label: "Arrow Vectors", description: "Show velocity arrows on orbs" },
 	{ key: "showTruePosition", label: "True Position", description: "Show position indicator dot" },
 	{ key: "pausePhysics", label: "Pause Physics", description: "Freeze orb movement" },
+	{ key: "disableCollisions", label: "Disable Orb Collisions", description: "No hard bounce (red zones)" },
+	{ key: "disableAvoidance", label: "Disable Avoidance", description: "No soft nudge (yellow zones)" },
 	{ key: "enableOrbSpawning", label: "Orb Spawning", description: "Continuous orb spawning" },
 	{ key: "enableOrbDespawning", label: "Orb Despawning", description: "Lifetime expiration" },
 	{ key: "enableSpawnOnClick", label: "Click to Create", description: "Click to spawn orbs" },
@@ -39,6 +41,8 @@ const defaultState: Omit<DebugState, "enabled"> = {
 	enableOrbSpawning: true,
 	enableOrbDespawning: true,
 	pausePhysics: false,
+	disableCollisions: false,
+	disableAvoidance: false,
 };
 
 /**
@@ -121,12 +125,12 @@ function ToggleSlider({ checked, onToggle }: { checked: boolean; onToggle: () =>
 		};
 		const handleMouseUp = () => handleDragEnd();
 		const handleTouchEnd = () => handleDragEnd();
-		
+
 		document.addEventListener("mousemove", handleMouseMove);
 		document.addEventListener("mouseup", handleMouseUp);
 		document.addEventListener("touchmove", handleTouchMove, { passive: false });
 		document.addEventListener("touchend", handleTouchEnd);
-		
+
 		return () => {
 			document.removeEventListener("mousemove", handleMouseMove);
 			document.removeEventListener("mouseup", handleMouseUp);
@@ -153,7 +157,7 @@ function ToggleSlider({ checked, onToggle }: { checked: boolean; onToggle: () =>
 				width: "56px",
 				height: "28px",
 				borderRadius: "14px",
-				background: position > 0.5 
+				background: position > 0.5
 					? "rgba(78, 5, 6, 0.4)"  // Maroon when on
 					: "rgba(255, 255, 255, 0.1)",
 				border: "1px solid rgba(255, 255, 255, 0.15)",
@@ -180,7 +184,7 @@ function ToggleSlider({ checked, onToggle }: { checked: boolean; onToggle: () =>
 					width: handleWidth,
 					height: "22px",
 					borderRadius: "11px",
-					background: position > 0.5 
+					background: position > 0.5
 						? "rgba(255, 255, 255, 0.9)"
 						: "rgba(255, 255, 255, 0.6)",
 					boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
@@ -201,10 +205,10 @@ function ToggleRow({ item, checked, onToggle }: {
 	onToggle: () => void;
 }) {
 	return (
-		<div style={{ 
-			display: "flex", 
-			alignItems: "center", 
-			justifyContent: "space-between", 
+		<div style={{
+			display: "flex",
+			alignItems: "center",
+			justifyContent: "space-between",
 			paddingTop: "8px",
 			paddingBottom: "8px",
 			gap: "12px",
@@ -229,9 +233,9 @@ function ToggleRow({ item, checked, onToggle }: {
  */
 function SectionHeader({ title, icon }: { title: string; icon?: React.ReactNode }) {
 	return (
-		<div style={{ 
-			marginBottom: "8px", 
-			paddingBottom: "8px", 
+		<div style={{
+			marginBottom: "8px",
+			paddingBottom: "8px",
 			borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
 			marginTop: "16px",
 		}}>
@@ -278,33 +282,33 @@ export function GlassDebugMenu({
 
 	useEffect(() => {
 		setMounted(true);
-		
+
 		// Check if mobile
 		const checkMobile = () => {
 			setIsMobile(window.innerWidth < 768);
 		};
 		checkMobile();
 		window.addEventListener("resize", checkMobile);
-		
+
 		if (typeof window !== 'undefined') {
 			const stored = localStorage.getItem("debug-mode-enabled");
 			setIsDebugEnabled(stored === "true");
 		}
-		
+
 		const handleDebugModeChange = (e: CustomEvent) => {
 			setIsDebugEnabled(e.detail.enabled);
 		};
-		
+
 		const checkDebugMode = () => {
 			if (typeof window !== 'undefined') {
 				const stored = localStorage.getItem("debug-mode-enabled");
 				setIsDebugEnabled(stored === "true");
 			}
 		};
-		
+
 		window.addEventListener("debugModeChanged", handleDebugModeChange as EventListener);
 		window.addEventListener("storage", checkDebugMode);
-		
+
 		return () => {
 			window.removeEventListener("resize", checkMobile);
 			window.removeEventListener("debugModeChanged", handleDebugModeChange as EventListener);
@@ -321,8 +325,8 @@ export function GlassDebugMenu({
 				// Defer event dispatch to avoid setState during render
 				queueMicrotask(() => {
 					window.dispatchEvent(
-						new CustomEvent("debugOptionChanged", { 
-							detail: { key, value: newState[key] } 
+						new CustomEvent("debugOptionChanged", {
+							detail: { key, value: newState[key] }
 						})
 					);
 				});
@@ -442,7 +446,7 @@ export function GlassDebugMenu({
 					{gridConfig && viewportCells && (
 						<>
 							<SectionHeader title="Grid Stats" />
-							
+
 							<div style={{ marginBottom: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
 								<span style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Grid:</span>
 								<span style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
@@ -466,7 +470,7 @@ export function GlassDebugMenu({
 										max={gridConfig.layers - 1}
 										value={currentLayer}
 										onChange={(e) => onLayerChange?.(parseInt(e.target.value))}
-										style={{ 
+										style={{
 											flex: 1,
 											cursor: 'pointer',
 											accentColor: 'rgba(78, 5, 6, 0.8)',
@@ -492,7 +496,7 @@ export function GlassDebugMenu({
 					{orbs.length > 0 && (
 						<>
 							<SectionHeader title={`Orb Debug (${orbs.length}${targetOrbCount ? ` / ${targetOrbCount}` : ''})`} />
-							
+
 							{/* Orb Selector */}
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
 								<label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
@@ -566,8 +570,8 @@ export function GlassDebugMenu({
 									step={1}
 									value={orbSize}
 									onChange={(e) => onSizeChange?.(parseInt(e.target.value, 10))}
-									style={{ 
-										width: '100%', 
+									style={{
+										width: '100%',
 										cursor: 'pointer',
 										accentColor: 'rgba(78, 5, 6, 0.8)',
 									}}

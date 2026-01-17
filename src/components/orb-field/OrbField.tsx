@@ -133,6 +133,8 @@ export function OrbField({
 	const enableOrbDespawningRef = useRef(true);
 	const enableSpawnOnClickRef = useRef(true);
 	const pausePhysicsRef = useRef(false);
+	const disableCollisionsRef = useRef(false);
+	const disableAvoidanceRef = useRef(false);
 	const showArrowVectorRef = useRef(true);
 	const showTruePositionRef = useRef(true);
 
@@ -153,12 +155,14 @@ export function OrbField({
 			enableSpawnOnClickRef.current = debugContext.state.enableSpawnOnClick;
 			showArrowVectorRef.current = debugContext.state.showArrowVector;
 			showTruePositionRef.current = debugContext.state.showTruePosition;
-			
+			disableCollisionsRef.current = debugContext.state.disableCollisions;
+			disableAvoidanceRef.current = debugContext.state.disableAvoidance;
+
 			// Handle pause state change
 			const wasPaused = pausePhysicsRef.current;
 			const isPaused = debugContext.state.pausePhysics;
 			pausePhysicsRef.current = isPaused;
-			
+
 			// Track pause/resume for time freezing
 			if (!wasPaused && isPaused) {
 				// Just paused - record the time
@@ -170,7 +174,7 @@ export function OrbField({
 					pausedAtTimeRef.current = null;
 				}
 			}
-			
+
 			// Also sync to isPaused state for UI display
 			setIsPaused(debugContext.state.pausePhysics);
 		}
@@ -208,12 +212,18 @@ export function OrbField({
 				case "enableSpawnOnClick":
 					enableSpawnOnClickRef.current = value;
 					break;
+				case "disableCollisions":
+					disableCollisionsRef.current = value;
+					break;
+				case "disableAvoidance":
+					disableAvoidanceRef.current = value;
+					break;
 				case "pausePhysics":
 					// Handle pause state change
 					const wasPaused = pausePhysicsRef.current;
 					const isPaused = value;
 					pausePhysicsRef.current = isPaused;
-					
+
 					// Track pause/resume for time freezing
 					if (!wasPaused && isPaused) {
 						// Just paused - record the time
@@ -225,7 +235,7 @@ export function OrbField({
 							pausedAtTimeRef.current = null;
 						}
 					}
-					
+
 					setIsPaused(value);
 					break;
 			}
@@ -255,15 +265,15 @@ export function OrbField({
 		const debugMode = getDebugMode();
 		setIsDebugMode(debugMode);
 		isDebugModeRef.current = debugMode;
-		
+
 		// Listen for debug mode changes from slider
 		const handleDebugModeChange = (e: CustomEvent) => {
 			setIsDebugMode(e.detail.enabled);
 			isDebugModeRef.current = e.detail.enabled;
 		};
-		
+
 		window.addEventListener('debugModeChanged', handleDebugModeChange as EventListener);
-		
+
 		return () => {
 			window.removeEventListener('debugModeChanged', handleDebugModeChange as EventListener);
 		};
@@ -391,7 +401,7 @@ export function OrbField({
 	// =========================================================================
 	// 2. Grid Initialization (Only on Resize)
 	// =========================================================================
-	
+
 	/**
 	 * Get the effective time for animations.
 	 * When paused, returns the frozen time (time at pause).
@@ -406,11 +416,14 @@ export function OrbField({
 		// Not paused - return current time minus all accumulated paused time
 		return now - pausedTimeOffsetRef.current;
 	}, []);
-	
+
 	useEffect(() => {
 		if (windowSize.width === 0) return;
 
-		const config = GridConfigFactory.create(window);
+		// Double grid density on mobile by halving cell size (0.5cm -> 0.25cm)
+		const config = GridConfigFactory.create(window, {
+			targetCellSizeCm: isMobile ? 0.25 : 0.5,
+		});
 		const newGrid = new SpatialGrid(config);
 
 		// Initialize border walls around grid edges
@@ -431,7 +444,7 @@ export function OrbField({
 		// Reset animation state on resize
 		hasAnimatedRef.current = false;
 		rollProgressRef.current = 0;
-	}, [windowSize]);
+	}, [windowSize, isMobile]);
 
 	// =========================================================================
 	// 3. Unified Update Loop
@@ -458,9 +471,11 @@ export function OrbField({
 			}
 
 			// Phase 2: Apply mouse repulsion (2D only, affects all orbs once regardless of z-layer)
-			const mousePos = mousePosRef.current;
-			if (mousePos) {
-				CollisionSystem.applyMouseRepulsion(currentOrbs, mousePos.x, mousePos.y, deltaTime);
+			if (!disableAvoidanceRef.current) {
+				const mousePos = mousePosRef.current;
+				if (mousePos) {
+					CollisionSystem.applyMouseRepulsion(currentOrbs, mousePos.x, mousePos.y, deltaTime);
+				}
 			}
 
 			// Phase 3: Apply speed limits (larger orbs are slower)
@@ -474,45 +489,49 @@ export function OrbField({
 				OrbPhysics.applyWander(orb, deltaTime);
 			}
 
-		// Phase 5: Apply layer attraction (orbs drift toward preferred depth)
-		const { maxSize } = DEFAULT_ORB_SPAWN_CONFIG;
-		const { attractionStrength } = DEFAULT_LAYER_ATTRACTION_CONFIG;
-		const totalLayers = grid.config.layers;
-		for (const orb of currentOrbs) {
-			OrbPhysics.applyLayerAttraction(orb, maxSize, totalLayers, attractionStrength, deltaTime);
-		}
-
-		// Phase 5.5: Apply orb-orb avoidance (soft nudging when avoidance zones overlap)
-		CollisionSystem.applyAvoidanceRepulsion(currentOrbs, vpc, deltaTime);
-
-		// Phase 5.6: Resolve orb-orb collisions (hard bounce when bodies overlap)
-		CollisionSystem.resolveOrbOrbCollisions(currentOrbs, vpc);
-
-		// Phase 6: Check wall collisions BEFORE movement, then move
-		for (const orb of currentOrbs) {
-			// Temporarily clear this orb's cells for collision check
-			OrbPhysics.clearOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
-
-			const collision = CollisionSystem.checkMove(orb, deltaTime, grid, vpc);
-
-			// Restore orb's cells
-			OrbPhysics.markOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
-
-			if (collision.blocked) {
-				// Reflect velocity on blocked axes BEFORE movement
-				CollisionSystem.applyReflection(orb, collision.reflectX, collision.reflectY, collision.reflectZ);
+			// Phase 5: Apply layer attraction (orbs drift toward preferred depth)
+			const { maxSize } = DEFAULT_ORB_SPAWN_CONFIG;
+			const { attractionStrength } = DEFAULT_LAYER_ATTRACTION_CONFIG;
+			const totalLayers = grid.config.layers;
+			for (const orb of currentOrbs) {
+				OrbPhysics.applyLayerAttraction(orb, maxSize, totalLayers, attractionStrength, deltaTime);
 			}
 
-			// Now move with (possibly reflected) velocity
-			OrbPhysics.updatePosition(orb, deltaTime);
-		}
+			// Phase 5.5: Apply orb-orb avoidance (soft nudging when avoidance zones overlap)
+			if (!disableAvoidanceRef.current) {
+				CollisionSystem.applyAvoidanceRepulsion(currentOrbs, vpc, deltaTime);
+			}
 
-		// Phase 6.5: Safety check - unstick any orbs that ended up inside walls
-		for (const orb of currentOrbs) {
-			OrbPhysics.clearOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
-			CollisionSystem.unstickFromWall(orb, grid, vpc);
-			OrbPhysics.markOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
-		}
+			// Phase 5.6: Resolve orb-orb collisions (hard bounce when bodies overlap)
+			if (!disableCollisionsRef.current) {
+				CollisionSystem.resolveOrbOrbCollisions(currentOrbs, vpc);
+			}
+
+			// Phase 6: Check wall collisions BEFORE movement, then move
+			for (const orb of currentOrbs) {
+				// Temporarily clear this orb's cells for collision check
+				OrbPhysics.clearOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
+
+				const collision = CollisionSystem.checkMove(orb, deltaTime, grid, vpc);
+
+				// Restore orb's cells
+				OrbPhysics.markOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
+
+				if (collision.blocked) {
+					// Reflect velocity on blocked axes BEFORE movement
+					CollisionSystem.applyReflection(orb, collision.reflectX, collision.reflectY, collision.reflectZ);
+				}
+
+				// Now move with (possibly reflected) velocity
+				OrbPhysics.updatePosition(orb, deltaTime);
+			}
+
+			// Phase 6.5: Safety check - unstick any orbs that ended up inside walls
+			for (const orb of currentOrbs) {
+				OrbPhysics.clearOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
+				CollisionSystem.unstickFromWall(orb, grid, vpc);
+				OrbPhysics.markOrbCircular(grid, orb, vpc.startCellX, vpc.startCellY, vpc.invCellSizeXPx, vpc.invCellSizeYPx);
+			}
 
 			// Phase 8: Re-mark at new positions for rendering
 			grid.clearDynamic();

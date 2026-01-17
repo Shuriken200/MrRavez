@@ -30,6 +30,10 @@ export interface DebugState {
 	enableOrbDespawning: boolean;
 	/** Pause physics simulation */
 	pausePhysics: boolean;
+	/** Disable orb-orb hard collisions (red zones) */
+	disableCollisions: boolean;
+	/** Disable orb-orb soft avoidance (yellow zones) */
+	disableAvoidance: boolean;
 }
 
 /**
@@ -62,6 +66,8 @@ const defaultState: DebugState = {
 	enableOrbSpawning: true,
 	enableOrbDespawning: true,
 	pausePhysics: false,
+	disableCollisions: false,
+	disableAvoidance: false,
 };
 
 const DebugContext = createContext<DebugContextValue | null>(null);

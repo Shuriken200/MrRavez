@@ -28,6 +28,7 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
     const [canShowFirstTime, setCanShowFirstTime] = useState(false);
     const [isDebugMode, setIsDebugMode] = useState(false);
     const [debugModeWasActiveThisSession, setDebugModeWasActiveThisSession] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
     
     // Refs for animation
     const animationRef = useRef<number | null>(null);
@@ -45,6 +46,16 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
         if (debugEnabled) {
             setDebugModeWasActiveThisSession(true);
         }
+    }, []);
+
+    // Detect mobile on mount and resize
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
     }, []);
 
     // Handle first-time delay (10 seconds)
@@ -270,7 +281,8 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
             onTouchEnd={(e) => e.stopPropagation()}
             style={{
                 position: "fixed",
-                bottom: "clamp(24px, 5vh, 40px)",
+                // Mobile: Shifted up to avoid safe area and overlap
+                bottom: isMobile ? "72px" : "clamp(24px, 5vh, 40px)",
                 left: "50%",
                 transform: "translateX(-50%)",
                 zIndex: 9999,
