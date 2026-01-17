@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ProfileCard, LinksCard, ContactCard } from "@/components/cards";
-import { GlassCard } from "@/components/glass";
+import { GlassCard, GlassSlider } from "@/components/glass";
 import type { AllSectionVisibility, SectionVisibility } from "../types";
 
 interface CardCarouselProps {
@@ -124,6 +124,18 @@ export function CardCarousel({ visibility, isReady }: CardCarouselProps) {
             >
                 <ContactCard />
             </AnimatedCard>
+
+            {/* Glass slider - fades with contact card */}
+            <GlassSlider 
+                visible={true}
+                opacity={
+                    contact.entryProgress === 1 
+                        ? contact.opacity 
+                        : contact.entryProgress > 0 
+                            ? contact.entryProgress * contact.opacity 
+                            : 0
+                }
+            />
         </div>
     );
 }

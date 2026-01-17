@@ -1,0 +1,323 @@
+"use client";
+
+import { useRef, useState, useEffect, useCallback } from "react";
+
+interface GlassSliderProps {
+    visible: boolean;
+    opacity?: number; // 0-1 for fade in/out
+    onSlideComplete?: (side: 'left' | 'right') => void;
+}
+
+// Spring physics configuration for smooth snap animation
+const SPRING_CONFIG = {
+    stiffness: 300,
+    damping: 25,
+    mass: 1,
+};
+
+export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSliderProps) {
+    const trackRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState(0); // 0 = left, 1 = right
+    const [isDragging, setIsDragging] = useState(false);
+    const [hasAppeared, setHasAppeared] = useState(false);
+    
+    // Refs for animation
+    const animationRef = useRef<number | null>(null);
+    const velocityRef = useRef(0);
+    const dragStartRef = useRef<{ x: number; startPosition: number } | null>(null);
+
+    // Handle visibility fade-in based on opacity
+    useEffect(() => {
+        if (opacity > 0.01 && !hasAppeared) {
+            // Small delay to ensure smooth fade-in
+            const timer = setTimeout(() => setHasAppeared(true), 50);
+            return () => clearTimeout(timer);
+        }
+        // Keep hasAppeared true even when fading out to allow smooth transition
+    }, [opacity, hasAppeared]);
+
+    // Cancel any ongoing animation
+    const cancelAnimation = useCallback(() => {
+        if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+        }
+    }, []);
+
+    // Spring animation to snap to target
+    const snapToPosition = useCallback((target: number) => {
+        cancelAnimation();
+        
+        let currentPosition = position;
+        let velocity = velocityRef.current;
+        const startTime = performance.now();
+        
+        const animate = () => {
+            const { stiffness, damping, mass } = SPRING_CONFIG;
+            
+            // Spring force: F = -k * x (where x is displacement from target)
+            const displacement = currentPosition - target;
+            const springForce = -stiffness * displacement;
+            
+            // Damping force: F = -c * v
+            const dampingForce = -damping * velocity;
+            
+            // Acceleration: a = F / m
+            const acceleration = (springForce + dampingForce) / mass;
+            
+            // Update velocity and position (using small time step)
+            const dt = 1 / 60; // Assume 60fps
+            velocity += acceleration * dt;
+            currentPosition += velocity * dt;
+            
+            setPosition(currentPosition);
+            
+            // Check if we've settled (very close to target with low velocity)
+            const isSettled = Math.abs(displacement) < 0.001 && Math.abs(velocity) < 0.01;
+            
+            if (isSettled) {
+                setPosition(target);
+                velocityRef.current = 0;
+                animationRef.current = null;
+                
+                // Notify completion
+                if (onSlideComplete) {
+                    onSlideComplete(target < 0.5 ? 'left' : 'right');
+                }
+            } else {
+                velocityRef.current = velocity;
+                animationRef.current = requestAnimationFrame(animate);
+            }
+        };
+        
+        animationRef.current = requestAnimationFrame(animate);
+    }, [position, cancelAnimation, onSlideComplete]);
+
+    // Calculate position from pointer X coordinate
+    const calculatePosition = useCallback((clientX: number, isDragStart: boolean = false): number => {
+        if (!trackRef.current) return position;
+        
+        const rect = trackRef.current.getBoundingClientRect();
+        const handleWidth = 64;
+        const padding = 6;
+        
+        // Available track width for the handle to move
+        const trackWidth = rect.width - handleWidth - (padding * 2);
+        
+        // Calculate relative position from the left edge of the track
+        const trackLeft = rect.left + padding;
+        const relativeX = clientX - trackLeft - (handleWidth / 2);
+        
+        return Math.max(0, Math.min(1, relativeX / trackWidth));
+    }, [position]);
+
+    // Handle drag start
+    const handleDragStart = useCallback((clientX: number) => {
+        cancelAnimation();
+        setIsDragging(true);
+        dragStartRef.current = { x: clientX, startPosition: position };
+    }, [cancelAnimation, position]);
+
+    // Handle drag move
+    const handleDragMove = useCallback((clientX: number) => {
+        if (!isDragging || !dragStartRef.current) return;
+        
+        const newPosition = calculatePosition(clientX);
+        
+        // Calculate velocity for momentum
+        velocityRef.current = (newPosition - position) * 60; // Scale to per-second
+        
+        setPosition(newPosition);
+    }, [isDragging, calculatePosition, position]);
+
+    // Handle drag end
+    const handleDragEnd = useCallback(() => {
+        if (!isDragging) return;
+        
+        setIsDragging(false);
+        dragStartRef.current = null;
+        
+        // Snap to nearest side, preferring left if close to center
+        const target = position > 0.55 ? 1 : 0;
+        snapToPosition(target);
+    }, [isDragging, position, snapToPosition]);
+
+    // Mouse event handlers
+    useEffect(() => {
+        if (!isDragging) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            e.preventDefault();
+            handleDragMove(e.clientX);
+        };
+
+        const handleMouseUp = () => {
+            handleDragEnd();
+        };
+
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
+
+        return () => {
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
+        };
+    }, [isDragging, handleDragMove, handleDragEnd]);
+
+    // Touch event handlers on handle
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        handleDragStart(e.touches[0].clientX);
+    }, [handleDragStart]);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        e.preventDefault();
+        handleDragMove(e.touches[0].clientX);
+    }, [handleDragMove]);
+
+    const handleTouchEnd = useCallback(() => {
+        handleDragEnd();
+    }, [handleDragEnd]);
+
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        handleDragStart(e.clientX);
+    }, [handleDragStart]);
+
+    // Cleanup animation on unmount
+    useEffect(() => {
+        return () => cancelAnimation();
+    }, [cancelAnimation]);
+
+    // Calculate handle position - pill shape dimensions
+    const handleWidth = 64;
+    const handleHeight = 44;
+    const padding = 6;
+    const handleLeft = `calc(${padding}px + ${position} * (100% - ${handleWidth}px - ${padding * 2}px))`;
+    
+    // Arrow rotation based on position
+    // At position 0 (left): points right (0deg)
+    // At position 1 (right): points left (-180deg, rotating upwards)
+    const arrowRotation = -(position * 180);
+
+    return (
+        <div
+            style={{
+                position: "fixed",
+                bottom: "clamp(24px, 5vh, 40px)",
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 100,
+                opacity: hasAppeared ? opacity : 0,
+                transition: "opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
+                willChange: "opacity",
+                pointerEvents: hasAppeared && opacity > 0.01 ? "auto" : "none",
+                visibility: opacity < 0.01 ? "hidden" : "visible",
+            }}
+        >
+            {/* Glass track container */}
+            <div
+                ref={trackRef}
+                style={{
+                    position: "relative",
+                    width: "280px",
+                    height: "56px",
+                    borderRadius: "28px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    backdropFilter: "blur(24px) saturate(120%)",
+                    WebkitBackdropFilter: "blur(24px) saturate(120%)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    boxShadow: `
+                        0 25px 50px rgba(0, 0, 0, 0.25),
+                        0 10px 20px rgba(0, 0, 0, 0.15),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                        inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+                    `,
+                    cursor: isDragging ? "grabbing" : "default",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                    touchAction: "none",
+                }}
+            >
+                {/* Top edge highlight */}
+                <div
+                    style={{
+                        position: "absolute",
+                        top: 0,
+                        left: "8%",
+                        right: "8%",
+                        height: 1,
+                        background: "linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.5) 20%, rgba(255, 255, 255, 0.6) 50%, rgba(255, 255, 255, 0.5) 80%, transparent 100%)",
+                        borderRadius: 14,
+                        pointerEvents: "none",
+                    }}
+                />
+
+                {/* Inner track groove */}
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: padding + handleWidth / 2,
+                        right: padding + handleWidth / 2,
+                        height: 4,
+                        transform: "translateY(-50%)",
+                        background: "rgba(255, 255, 255, 0.06)",
+                        borderRadius: 2,
+                        boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.2)",
+                        pointerEvents: "none",
+                    }}
+                />
+
+                {/* Draggable handle - pill shape */}
+                <div
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: handleLeft,
+                        transform: "translateY(-50%)",
+                        width: handleWidth,
+                        height: handleHeight,
+                        borderRadius: handleHeight / 2,
+                        background: "rgba(255, 255, 255, 0.15)",
+                        backdropFilter: "blur(12px)",
+                        WebkitBackdropFilter: "blur(12px)",
+                        border: "1px solid rgba(255, 255, 255, 0.25)",
+                        boxShadow: `
+                            0 4px 12px rgba(0, 0, 0, 0.3),
+                            0 2px 4px rgba(0, 0, 0, 0.2),
+                            inset 0 1px 0 rgba(255, 255, 255, 0.3)
+                        `,
+                        cursor: isDragging ? "grabbing" : "grab",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: isDragging ? "none" : "box-shadow 0.2s ease",
+                        willChange: "left",
+                    }}
+                >
+                    {/* Arrow icon */}
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="rgba(255, 255, 255, 0.9)"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{
+                            transform: `rotate(${arrowRotation}deg)`,
+                            transition: isDragging ? "none" : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        }}
+                    >
+                        <path d="M9 18l6-6-6-6" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    );
+}
