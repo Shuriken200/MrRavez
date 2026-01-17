@@ -223,6 +223,7 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         handleDragStart(e.clientX);
     }, [handleDragStart]);
 
@@ -249,12 +250,12 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
                 bottom: "clamp(24px, 5vh, 40px)",
                 left: "50%",
                 transform: "translateX(-50%)",
-                zIndex: 100,
+                zIndex: 9999,
                 opacity: hasAppeared ? opacity : 0,
                 transition: "opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
                 willChange: "opacity",
-                pointerEvents: hasAppeared && opacity > 0.01 ? "auto" : "none",
-                visibility: opacity < 0.01 ? "hidden" : "visible",
+                pointerEvents: "auto",  // Always allow interaction when rendered
+                visibility: (hasAppeared && opacity > 0.01) || opacity > 0.5 ? "visible" : "hidden",
             }}
         >
             {/* Glass track container */}

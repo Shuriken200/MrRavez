@@ -120,6 +120,7 @@ export function OrbField({
 	const scrollProgressRef = useRef(scrollProgress); // Track scroll progress for parallax offset
 	const isMobileRef = useRef(isMobile); // Track mobile mode for scroll direction
 	const currentScrollOffsetRef = useRef({ x: 0, y: 0 }); // Smoothly interpolated scroll offset for rendering
+	const isDebugModeRef = useRef(false); // Track debug mode for animation loop
 
 	// =========================================================================
 	// React State for UI
@@ -136,11 +137,14 @@ export function OrbField({
 
 	// Initialize debug mode on mount
 	useEffect(() => {
-		setIsDebugMode(getDebugMode());
+		const debugMode = getDebugMode();
+		setIsDebugMode(debugMode);
+		isDebugModeRef.current = debugMode;
 		
 		// Listen for debug mode changes from slider
 		const handleDebugModeChange = (e: CustomEvent) => {
 			setIsDebugMode(e.detail.enabled);
+			isDebugModeRef.current = e.detail.enabled;
 		};
 		
 		window.addEventListener('debugModeChanged', handleDebugModeChange as EventListener);
@@ -443,7 +447,7 @@ export function OrbField({
 
 		// C. Opacity Fade Logic (non-debug mode)
 		let finalOpacity = opacityRef.current;
-		if (!isDebugMode) {
+		if (!isDebugModeRef.current) {
 			const fadeStart = DEFAULT_ORBFIELD_CONFIG.fadeOutStart;
 			if (easedProgress > fadeStart) {
 				const fadeFactor = (easedProgress - fadeStart) / (1 - fadeStart);
@@ -475,10 +479,10 @@ export function OrbField({
 			easedProgress,
 			revealConfigRef.current,
 			styleConfigRef.current,
-			isDebugMode ? hoveredCellRef.current : null,
+			isDebugModeRef.current ? hoveredCellRef.current : null,
 			grid,
 			currentLayerRef.current,
-			isDebugMode ? orbsRef.current : [],
+			isDebugModeRef.current ? orbsRef.current : [],
 			undefined, // use default orbDebugConfig
 			current.x,
 			current.y
@@ -504,7 +508,7 @@ export function OrbField({
 		}
 
 		// F. Debug Panel Sync
-		if (isDebugMode && selectedOrbIdRef.current) {
+		if (isDebugModeRef.current && selectedOrbIdRef.current) {
 			updateSelectedOrbData();
 		}
 	}, [orbsRef, selectedOrbIdRef, updateSelectedOrbData, syncOrbsState, spawnRandomOrbs]);

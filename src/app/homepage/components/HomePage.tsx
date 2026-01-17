@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useTheme } from "@/components/providers";
 import { ScrollDotIndicator } from "@/components/ui/ScrollDotIndicator";
 import { GridView } from "@/components/orb-field";
+import { GlassSlider } from "@/components/glass";
 import {
     useAnimationStages,
     useCardTransition,
@@ -117,6 +118,18 @@ export function HomePage({ initialSection }: HomePageProps) {
                     theme={theme}
                 />
             </main>
+
+            {/* Glass slider - OUTSIDE main to avoid stacking context issues */}
+            <GlassSlider 
+                visible={visibility.contact.entryProgress > 0}
+                opacity={
+                    visibility.contact.entryProgress === 1 
+                        ? 1  // Always full opacity when fully entered
+                        : visibility.contact.entryProgress > 0 
+                            ? visibility.contact.entryProgress  // Fade in with entry progress
+                            : 0
+                }
+            />
         </>
     );
 }
