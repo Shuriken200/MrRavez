@@ -82,6 +82,7 @@ export function OrbField({
 	const hoveredCellRef = useRef<{ x: number; y: number; worldX: number; worldY: number } | null>(null);
 	const isPausedRef = useRef(false);
 	const burstTimeRef = useRef<number | null>(null); // Track when burst happened for delayed continuous spawning
+	const mousePosRef = useRef<{ x: number; y: number } | null>(null); // Track mouse position for orb repulsion
 
 	// =========================================================================
 	// React State for UI
@@ -146,7 +147,7 @@ export function OrbField({
 	useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
 
 	// =========================================================================
-	// 1. Mount & Resize Logic
+	// 1. Mount & Resize Logic + Global Mouse Tracking
 	// =========================================================================
 	useEffect(() => {
 		const frameId = requestAnimationFrame(() => setIsMounted(true));
@@ -162,11 +163,24 @@ export function OrbField({
 			windowSizeRef.current = { width, height };
 		};
 
+		// Global mouse tracking for orb repulsion (works even when canvas has pointerEvents: none)
+		const handleGlobalMouseMove = (e: MouseEvent) => {
+			mousePosRef.current = { x: e.clientX, y: e.clientY };
+		};
+
+		const handleGlobalMouseLeave = () => {
+			mousePosRef.current = null;
+		};
+
 		handleResize();
 		window.addEventListener('resize', handleResize);
+		window.addEventListener('mousemove', handleGlobalMouseMove);
+		document.addEventListener('mouseleave', handleGlobalMouseLeave);
 
 		return () => {
 			window.removeEventListener('resize', handleResize);
+			window.removeEventListener('mousemove', handleGlobalMouseMove);
+			document.removeEventListener('mouseleave', handleGlobalMouseLeave);
 			cancelAnimationFrame(frameId);
 		};
 	}, []);
@@ -226,6 +240,12 @@ export function OrbField({
 
 			// Phase 2: Apply soft avoidance repulsion (when avoidance zones overlap)
 			CollisionSystem.applyAvoidanceRepulsion(currentOrbs, vpc, deltaTime);
+
+			// Phase 2.5: Apply mouse repulsion (2D only, affects all orbs once regardless of z-layer)
+			const mousePos = mousePosRef.current;
+			if (mousePos) {
+				CollisionSystem.applyMouseRepulsion(currentOrbs, mousePos.x, mousePos.y, deltaTime);
+			}
 
 			// Phase 3: Resolve orb-orb hard collisions (mutual elastic bounce)
 			CollisionSystem.resolveOrbOrbCollisions(currentOrbs, vpc);
@@ -442,6 +462,7 @@ export function OrbField({
 	// 5. Interaction Handlers
 	// =========================================================================
 	const handleMouseMove = useCallback((e: React.MouseEvent) => {
+		// Debug mode cell tracking only (mouse repulsion handled by global listener)
 		const vpc = viewportCellsRef.current;
 		const gc = gridConfig;
 		if (!vpc || !gc || rollProgressRef.current < 1 || !IS_DEBUG_MODE) return;
@@ -477,6 +498,7 @@ export function OrbField({
 	}, [deleteOrb]);
 
 	const handleMouseLeave = useCallback(() => {
+		// Debug mode only (mouse repulsion handled by global listener)
 		hoveredCellRef.current = null;
 		setHoveredCell(null);
 	}, []);
