@@ -397,6 +397,9 @@ export function GlassDebugMenu({
 
 				{/* Slide-in Panel */}
 				<div
+					onTouchStart={(e) => e.stopPropagation()}
+					onTouchMove={(e) => e.stopPropagation()}
+					onTouchEnd={(e) => e.stopPropagation()}
 					style={{
 						...glassStyles,
 						position: "fixed",
@@ -411,6 +414,7 @@ export function GlassDebugMenu({
 						fontFamily: "var(--font-mono), monospace",
 						padding: "16px",
 						paddingTop: "72px", // Space for button
+						touchAction: "pan-y", // Only allow vertical scrolling within panel
 					}}
 				>
 					{/* Debug Options Section */}

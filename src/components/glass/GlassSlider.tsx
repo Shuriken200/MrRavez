@@ -220,15 +220,18 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
 
     // Touch event handlers on handle
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        e.stopPropagation();
         handleDragStart(e.touches[0].clientX);
     }, [handleDragStart]);
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         handleDragMove(e.touches[0].clientX);
     }, [handleDragMove]);
 
-    const handleTouchEnd = useCallback(() => {
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        e.stopPropagation();
         handleDragEnd();
     }, [handleDragEnd]);
 
@@ -262,6 +265,9 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
 
     return (
         <div
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
             style={{
                 position: "fixed",
                 bottom: "clamp(24px, 5vh, 40px)",
@@ -278,6 +284,12 @@ export function GlassSlider({ visible, opacity = 1, onSlideComplete }: GlassSlid
             {/* Glass track container */}
             <div
                 ref={trackRef}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }}
+                onTouchEnd={(e) => e.stopPropagation()}
                 style={{
                     position: "relative",
                     width: "280px",
