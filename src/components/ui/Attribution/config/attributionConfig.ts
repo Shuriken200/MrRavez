@@ -12,7 +12,7 @@ export const attributionConfig = {
 
 	/** Link configuration */
 	link: {
-		href: "https://mrravez.no",
+		href: "https://de-backer.no",
 		target: "_blank",
 		rel: "noopener noreferrer",
 	},
