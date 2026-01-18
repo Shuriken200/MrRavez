@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import { GlassButton } from "@/components/glass";
 import { CardTemplate } from "./CardTemplate";
 
@@ -59,15 +60,67 @@ function getIcon(iconType: string) {
  * Only handles the card's content, no animation/transition logic
  */
 export function LinksCard() {
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Only handle arrow up/down keys
+			if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+				return;
+			}
+
+			// Check if a button within this card is focused
+			const activeElement = document.activeElement;
+			if (!activeElement || !container.contains(activeElement)) {
+				return;
+			}
+
+			// Get all buttons within this card
+			const buttons = Array.from(container.querySelectorAll<HTMLAnchorElement>('.glass-button-link'));
+			const currentIndex = buttons.indexOf(activeElement as HTMLAnchorElement);
+
+			if (currentIndex === -1) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Navigate to next/previous button
+			if (e.key === "ArrowDown") {
+				// Move to next button, but don't go past the last one
+				if (currentIndex < buttons.length - 1) {
+					buttons[currentIndex + 1].focus();
+				}
+			} else if (e.key === "ArrowUp") {
+				// Move to previous button, but don't go past the first one
+				if (currentIndex > 0) {
+					buttons[currentIndex - 1].focus();
+				}
+			}
+		};
+
+		// Use capture phase to intercept before global handlers
+		window.addEventListener("keydown", handleKeyDown, true);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown, true);
+		};
+	}, []);
+
 	return (
 		<CardTemplate title="Links">
-			<div style={{
-				display: 'flex',
-				flexDirection: 'column',
-				gap: '8px',
-				transformStyle: 'preserve-3d',
-				width: '100%'
-			}}>
+			<div 
+				ref={containerRef}
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: '8px',
+					transformStyle: 'preserve-3d',
+					width: '100%'
+				}}
+			>
 				{links.map(link => (
 					<GlassButton
 						key={link.href}

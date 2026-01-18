@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ProfileCard, LinksCard, ContactCard } from "@/components/cards";
 import { GlassCard } from "@/components/glass";
 import { useDebugSafe } from "@/components/debug";
@@ -82,6 +82,12 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 	// Use context value if available, otherwise use local state
 	const showCards = debugContext?.state.showCards ?? localShowCards;
 
+	// Refs for each card container to manage focus
+	const profileCardRef = useRef<HTMLDivElement>(null);
+	const linksCardRef = useRef<HTMLDivElement>(null);
+	const contactCardRef = useRef<HTMLDivElement>(null);
+	const previousActiveSectionRef = useRef<number>(activeSection);
+
 	useEffect(() => {
 		if (isReady && !hasFadedIn) {
 			// Double RAF + small timeout ensures browser has painted initial state
@@ -109,6 +115,51 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 			window.removeEventListener("debugOptionChanged", handleDebugOptionChange as EventListener);
 		};
 	}, []);
+
+	// Focus management: when switching cards, focus first focusable element
+	useEffect(() => {
+		// Only handle focus if the active section has changed
+		if (previousActiveSectionRef.current === activeSection) {
+			return;
+		}
+
+		const previousSection = previousActiveSectionRef.current;
+		previousActiveSectionRef.current = activeSection;
+
+		// Get the card refs as an array for easier indexing
+		const cardRefs = [profileCardRef, linksCardRef, contactCardRef];
+
+		// Check if an element was focused on the previous card
+		const activeElement = document.activeElement;
+		const previousCardRef = cardRefs[previousSection]?.current;
+		
+		// Only manage focus if an element was focused on a card
+		if (
+			!activeElement ||
+			!previousCardRef ||
+			!previousCardRef.contains(activeElement) ||
+			activeElement === document.body
+		) {
+			return;
+		}
+
+		// Focus the first focusable element on the new card
+		const newCardRef = cardRefs[activeSection]?.current;
+		if (!newCardRef) return;
+
+		// Find all focusable elements in the new card
+		const focusableElements = newCardRef.querySelectorAll<HTMLElement>(
+			'a[href], button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
+		);
+
+		// Focus the first focusable element
+		if (focusableElements.length > 0) {
+			// Small delay to ensure the card transition has started
+			requestAnimationFrame(() => {
+				focusableElements[0].focus();
+			});
+		}
+	}, [activeSection]);
 
 	// Don't render if not ready or showCards is disabled
 	if (!isReady || !showCards) {
@@ -149,37 +200,43 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 			</div>
 
 			{/* Profile card with scroll-based fade in/out */}
-			<AnimatedCard
-				visibility={profile}
-				padding="clamp(16px, 4vw, 30px)"
-				mobilePadding="20px"
-				mobileBorderRadius={40}
-				ariaLabel="About section"
-			>
-				<ProfileCard />
-			</AnimatedCard>
+			<div ref={profileCardRef}>
+				<AnimatedCard
+					visibility={profile}
+					padding="clamp(16px, 4vw, 30px)"
+					mobilePadding="20px"
+					mobileBorderRadius={40}
+					ariaLabel="About section"
+				>
+					<ProfileCard />
+				</AnimatedCard>
+			</div>
 
 			{/* Links card with scroll-based fade in/out */}
-			<AnimatedCard
-				visibility={links}
-				padding="clamp(16px, 4vw, 30px)"
-				mobilePadding="20px"
-				mobileBorderRadius={40}
-				ariaLabel="Links section"
-			>
-				<LinksCard />
-			</AnimatedCard>
+			<div ref={linksCardRef}>
+				<AnimatedCard
+					visibility={links}
+					padding="clamp(16px, 4vw, 30px)"
+					mobilePadding="20px"
+					mobileBorderRadius={40}
+					ariaLabel="Links section"
+				>
+					<LinksCard />
+				</AnimatedCard>
+			</div>
 
 			{/* Contact card with scroll-based fade in */}
-			<AnimatedCard
-				visibility={contact}
-				padding="clamp(16px, 4vw, 30px)"
-				mobilePadding="20px"
-				mobileBorderRadius={40}
-				ariaLabel="Contact section"
-			>
-				<ContactCard />
-			</AnimatedCard>
+			<div ref={contactCardRef}>
+				<AnimatedCard
+					visibility={contact}
+					padding="clamp(16px, 4vw, 30px)"
+					mobilePadding="20px"
+					mobileBorderRadius={40}
+					ariaLabel="Contact section"
+				>
+					<ContactCard />
+				</AnimatedCard>
+			</div>
 		</div>
 	);
 }

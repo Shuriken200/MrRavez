@@ -409,6 +409,7 @@ export function GlassCard({
 			role="region"
 			aria-roledescription="slide"
 			aria-label={ariaLabel}
+			inert={!isVisible ? true : undefined}
 			style={{
 				position: "relative",
 				perspective: "1200px",
