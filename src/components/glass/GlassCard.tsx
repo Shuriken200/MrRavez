@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, ReactNode, useState, useEffect, useId } from "react";
-import { useDeviceOrientation } from "@/hooks/useDeviceOrientation";
-import { useCardTilt } from "./hooks";
+import { useRef, ReactNode, useId } from "react";
+import { useDeviceOrientation, useTouchDevice } from "@/hooks";
+import { useCardTilt, useEntryExitAnimation, useOpacityVisibility, buildEntryExitTransform } from "./hooks";
 import styles from "./GlassCard.module.css";
 
 interface GlassCardProps {
@@ -34,6 +34,15 @@ interface GlassCardProps {
 	ariaLabel?: string;
 }
 
+/**
+ * GlassCard - A glassmorphic card component with 3D tilt effects
+ * 
+ * Refactored to follow SOLID principles:
+ * - useTouchDevice: Shared touch device detection
+ * - useCardTilt: 3D tilt based on mouse/device orientation
+ * - useEntryExitAnimation: Entry/exit animation calculations
+ * - useOpacityVisibility: Visibility management
+ */
 export function GlassCard({
 	children,
 	className,
@@ -53,28 +62,13 @@ export function GlassCard({
 	ariaLabel,
 }: GlassCardProps) {
 	const cardRef = useRef<HTMLDivElement>(null);
-	// useId generates stable IDs that match between server and client
 	const cardId = useId();
 
-	// Device orientation for mobile tilt
+	// Device detection
+	const isTouchDevice = useTouchDevice();
 	const { tiltX, tiltY, hasPermission } = useDeviceOrientation();
 
-	// Detect touch device - start false for SSR, then detect on mount
-	const [isTouchDevice, setIsTouchDevice] = useState(false);
-
-	useEffect(() => {
-		// Check for touch device on mount to avoid SSR/hydration mismatch
-		// Use microtask to avoid synchronous setState warning
-		queueMicrotask(() => {
-			const isTouch =
-				window.matchMedia('(hover: none)').matches ||
-				window.matchMedia('(pointer: coarse)').matches ||
-				'ontouchstart' in window;
-			setIsTouchDevice(isTouch);
-		});
-	}, []);
-
-	// Use card tilt hook for 3D tilt effect
+	// 3D tilt effect
 	const { transform, transitionStyle } = useCardTilt({
 		cardRef,
 		cardId,
@@ -84,60 +78,21 @@ export function GlassCard({
 		hasPermission,
 	});
 
+	// Entry/exit animation
+	const animation = useEntryExitAnimation({
+		entryProgress,
+		exitProgress,
+		additionalScale: mobileScale,
+	});
+
+	// Visibility management
+	const { isVisible } = useOpacityVisibility({ opacity });
+
+	// Padding values
 	const paddingValue = typeof padding === "number" ? `${padding}px` : padding;
 	const mobilePaddingValue = mobilePadding
 		? (typeof mobilePadding === "number" ? `${mobilePadding}px` : mobilePadding)
 		: paddingValue;
-
-	// Track visibility - hide element shortly after opacity reaches 0
-	const [isVisible, setIsVisible] = useState(opacity > 0.01);
-	const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	useEffect(() => {
-		// Clear any pending timer
-		if (visibilityTimerRef.current) {
-			clearTimeout(visibilityTimerRef.current);
-			visibilityTimerRef.current = null;
-		}
-
-		if (opacity > 0.01) {
-			// Immediately show when opacity increases - use timer with 0ms to avoid sync setState
-			visibilityTimerRef.current = setTimeout(() => setIsVisible(true), 0);
-		} else {
-			// Brief delay to ensure smooth transition completion
-			visibilityTimerRef.current = setTimeout(() => setIsVisible(false), 100);
-		}
-
-		return () => {
-			if (visibilityTimerRef.current) {
-				clearTimeout(visibilityTimerRef.current);
-			}
-		};
-	}, [opacity]);
-
-	// Custom easing function: cubic ease-out for natural motion
-	const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-	const easeInCubic = (t: number) => t * t * t;
-
-	// Entry animation: scale from 0.8 to 1, translateY from 150px to 0, rotateX from -12deg to 0
-	// Made more pronounced for visible slide-in effect
-	const easedEntry = easeOutCubic(entryProgress);
-	const entryScale = 0.8 + (0.2 * easedEntry);
-	const entryTranslateY = 150 * (1 - easedEntry);
-	const entryRotateX = -12 * (1 - easedEntry);
-
-	// Exit animation: scale from 1 to 0.88, translateY from 0 to -100px, rotateX from 0 to 10deg
-	// Made more pronounced to match entry
-	const easedExit = easeInCubic(exitProgress);
-	const exitScale = 1 - (0.12 * easedExit);
-	const exitTranslateY = -100 * easedExit;
-	const exitRotateX = 10 * easedExit;
-
-	// Combine entry and exit animations with mobile scale
-	const baseScale = entryScale * exitScale;
-	const finalScale = baseScale * mobileScale; // Apply mobile carousel scale
-	const finalTranslateY = entryTranslateY + exitTranslateY;
-	const finalRotateX = entryRotateX + exitRotateX;
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { transform: _, ...styleWithoutTransform } = style || {};
@@ -146,29 +101,23 @@ export function GlassCard({
 	const hasWheelTransform = wheelRotateY !== 0 || wheelTranslateX !== 0 || wheelTranslateZ !== 0;
 
 	// Build optimized 3D transform for GPU compositing
-	// translate3d triggers GPU layer promotion for smoother animations
 	let combinedTransform: string;
 
 	if (hasWheelTransform) {
 		// Mobile 3D wheel carousel transform
-		// Cards rotate on a horizontal cylinder, creating a Ferris wheel effect
-		// Order: centering -> wheel position -> wheel rotation -> scale
-		// Shifted up by 40px (-50% -> -50% - 40px) to make room for bottom UI
 		combinedTransform = `
-            translate3d(calc(-50% + ${wheelTranslateX}px), calc(-50% - 40px), ${wheelTranslateZ}px)
-            rotateY(${wheelRotateY}deg)
-            scale3d(${mobileScale}, ${mobileScale}, 1)
-        `.replace(/\s+/g, ' ').trim();
+			translate3d(calc(-50% + ${wheelTranslateX}px), calc(-50% - 40px), ${wheelTranslateZ}px)
+			rotateY(${wheelRotateY}deg)
+			scale3d(${mobileScale}, ${mobileScale}, 1)
+		`.replace(/\s+/g, ' ').trim();
 	} else {
 		// Desktop or legacy mobile: vertical scroll animations
-		// Order: centering -> mobile offset -> vertical animation -> scale -> rotation
-		// On mobile, shift up by 40px to make room for bottom UI
 		const verticalShift = isTouchDevice ? "- 40px" : "";
-		combinedTransform = `
-            translate3d(calc(-50% + ${mobileOffset}vw), calc(-50% + ${finalTranslateY}px ${verticalShift}), 0)
-            scale3d(${finalScale}, ${finalScale}, 1)
-            rotateX(${finalRotateX}deg)
-        `.replace(/\s+/g, ' ').trim();
+		combinedTransform = buildEntryExitTransform(animation, {
+			horizontalOffset: mobileOffset,
+			verticalShift,
+			centered: true,
+		});
 	}
 
 	// Check if mobile overrides are provided
@@ -199,7 +148,6 @@ export function GlassCard({
 				opacity: opacity,
 				visibility: isVisible ? "visible" : "hidden",
 				pointerEvents: opacity > 0.01 ? "auto" : "none",
-				// No CSS transition - JS handles smooth animation via requestAnimationFrame
 				transform: combinedTransform,
 				...cssVars,
 				...styleWithoutTransform,
@@ -228,18 +176,18 @@ export function GlassCard({
 						backdropFilter: "blur(24px) saturate(120%)",
 						WebkitBackdropFilter: "blur(24px) saturate(120%)",
 						boxShadow: `
-                            0 25px 50px rgba(0, 0, 0, 0.25),
-                            0 10px 20px rgba(0, 0, 0, 0.15),
-                            inset 0 1px 0 rgba(255, 255, 255, 0.2),
-                            inset 0 -1px 0 rgba(0, 0, 0, 0.1)
-                        `,
+							0 25px 50px rgba(0, 0, 0, 0.25),
+							0 10px 20px rgba(0, 0, 0, 0.15),
+							inset 0 1px 0 rgba(255, 255, 255, 0.2),
+							inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+						`,
 						border: "1px solid rgba(255, 255, 255, 0.15)",
 						zIndex: 0,
 						pointerEvents: "none",
-						overflow: "hidden", // Ensures children like the highlight line are clipped by border radius
+						overflow: "hidden",
 					}}
 				>
-					{/* Top edge highlight - now clipped by parent overflow:hidden */}
+					{/* Top edge highlight */}
 					<div
 						aria-hidden="true"
 						style={{
@@ -271,4 +219,3 @@ export function GlassCard({
 		</div>
 	);
 }
-
