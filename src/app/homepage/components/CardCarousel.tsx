@@ -116,7 +116,7 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 		};
 	}, []);
 
-	// Focus management: when switching cards, focus first focusable element
+	// Focus management: when switching cards, focus first focusable element if a button was focused
 	useEffect(() => {
 		// Only handle focus if the active section has changed
 		if (previousActiveSectionRef.current === activeSection) {
@@ -126,39 +126,33 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 		const previousSection = previousActiveSectionRef.current;
 		previousActiveSectionRef.current = activeSection;
 
-		// Get the card refs as an array for easier indexing
-		const cardRefs = [profileCardRef, linksCardRef, contactCardRef];
+		// Check if focus is currently on a button within a card
+		const activeElement = document.activeElement as HTMLElement;
+		const isButtonFocused = activeElement?.classList.contains('glass-button-link');
+		const previousCard = document.querySelector(`[data-card-section="${previousSection}"]`);
+		const wasFocusedInPreviousCard = previousCard?.contains(activeElement);
 
-		// Check if an element was focused on the previous card
-		const activeElement = document.activeElement;
-		const previousCardRef = cardRefs[previousSection]?.current;
-		
-		// Only manage focus if an element was focused on a card
-		if (
-			!activeElement ||
-			!previousCardRef ||
-			!previousCardRef.contains(activeElement) ||
-			activeElement === document.body
-		) {
+		// Only auto-focus if a button in the previous card was focused
+		if (!isButtonFocused || !wasFocusedInPreviousCard) {
 			return;
 		}
 
-		// Focus the first focusable element on the new card
-		const newCardRef = cardRefs[activeSection]?.current;
-		if (!newCardRef) return;
+		// Focus the first focusable element on the new card after a delay
+		// to ensure the card transition has completed
+		setTimeout(() => {
+			// Query using data attribute
+			const newCard = document.querySelector(`[data-card-section="${activeSection}"]`);
+			if (!newCard) {
+				return;
+			}
 
-		// Find all focusable elements in the new card
-		const focusableElements = newCardRef.querySelectorAll<HTMLElement>(
-			'a[href], button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
-		);
+			// Find all glass-button-link elements in the new card
+			const focusableElements = newCard.querySelectorAll<HTMLElement>('.glass-button-link');
 
-		// Focus the first focusable element
-		if (focusableElements.length > 0) {
-			// Small delay to ensure the card transition has started
-			requestAnimationFrame(() => {
+			if (focusableElements.length > 0) {
 				focusableElements[0].focus();
-			});
-		}
+			}
+		}, 150);
 	}, [activeSection]);
 
 	// Don't render if not ready or showCards is disabled
@@ -200,7 +194,7 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 			</div>
 
 			{/* Profile card with scroll-based fade in/out */}
-			<div ref={profileCardRef}>
+			<div ref={profileCardRef} data-card-section="0">
 				<AnimatedCard
 					visibility={profile}
 					padding="clamp(16px, 4vw, 30px)"
@@ -213,7 +207,7 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 			</div>
 
 			{/* Links card with scroll-based fade in/out */}
-			<div ref={linksCardRef}>
+			<div ref={linksCardRef} data-card-section="1">
 				<AnimatedCard
 					visibility={links}
 					padding="clamp(16px, 4vw, 30px)"
@@ -226,7 +220,7 @@ export function CardCarousel({ visibility, isReady, activeSection }: CardCarouse
 			</div>
 
 			{/* Contact card with scroll-based fade in */}
-			<div ref={contactCardRef}>
+			<div ref={contactCardRef} data-card-section="2">
 				<AnimatedCard
 					visibility={contact}
 					padding="clamp(16px, 4vw, 30px)"
