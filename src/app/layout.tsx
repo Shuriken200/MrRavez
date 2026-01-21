@@ -10,8 +10,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "Leon",
-	description: "Leon Joachim Buverud De Backer",
+	title: "MrRavez",
+	description: "Video content creator and photographer",
 };
 
 export const viewport: Viewport = {
